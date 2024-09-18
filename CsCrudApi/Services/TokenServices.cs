@@ -1,8 +1,8 @@
-﻿using CsCrudApi.Models;
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using CsCrudApi.Models.User;
 
 namespace CsCrudApi.Services
 {
