@@ -2,7 +2,8 @@
 using CsCrudApi.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using CsCrudApi.Repository;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
 
 namespace CsCrudApi.Controllers
 {
@@ -20,9 +21,10 @@ namespace CsCrudApi.Controllers
 
         [HttpPost("login")]
         [AllowAnonymous]
-        public async Task<ActionResult<dynamic>> Login([FromBody] User model)
+        public async Task<ActionResult<dynamic>> Login([FromBody] LoginDTO model)
         {
-            var user = UserRepository.Get(model.Email, model.Password); 
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == model.Email && u.Password == model.Password);
 
             if (user == null) 
             {
