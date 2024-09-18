@@ -1,33 +1,43 @@
-﻿using CsCrudApi.Models;
+﻿using CsCrudApi.Services;
+using CsCrudApi.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using CsCrudApi.Repository;
 
 namespace CsCrudApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class UserAuthenticatorController : ControllerBase
+    public class UserAuthController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        public UserAuthenticatorController(ApplicationDbContext context) 
+        private readonly IConfiguration _configuration;
+        public UserAuthController(ApplicationDbContext context, IConfiguration configuration) 
         {
             _context = context;
+            _configuration = configuration;
         }
 
-        [HttpGet("test-connection")]
-        public async Task<IActionResult> TestConnection()
+        [HttpPost("login")]
+        [AllowAnonymous]
+        public async Task<ActionResult<dynamic>> Login([FromBody] User model)
         {
-            try
+            var user = UserRepository.Get(model.Email, model.Password); 
+
+            if (user == null) 
             {
-                // Executa uma consulta simples para verificar a conexão
-                var users = await _context.Users.ToListAsync();
-                return Ok(users);
+                return NotFound(new
+                {
+                    message = "Usuário ou senha inexistente"
+                });
             }
-            catch (Exception ex)
+            var token = Services.TokenServices.GenerateToken(user);
+            user.Password = "";
+            return new 
             {
-                // Retorna uma mensagem de erro caso a conexão falhe
-                return StatusCode(500, new { Message = "Erro ao conectar com o banco de dados", Error = ex.Message });
-            }
+                user,
+                token
+            };
         }
     }
 }
