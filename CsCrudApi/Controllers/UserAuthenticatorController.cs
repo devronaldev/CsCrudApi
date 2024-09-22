@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using CsCrudApi.Models.User;
+using Microsoft.IdentityModel.Tokens;
 
 namespace CsCrudApi.Controllers
 {
@@ -49,15 +50,25 @@ namespace CsCrudApi.Controllers
             };
         }
 
+        [HttpPost("checkdeploy")]
+        public async Task<ActionResult<dynamic>> CheckDeploy([FromBody] LoginDTO user)
+        {
+            return new { user };
+        }
+
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<ActionResult<dynamic>> Register([FromBody] User model)
         {
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.Password);
+
+            //TESTAR ERROS COM URGÊNCIA
+            
             if (model.NmSocial == "" || model.NmSocial == null)
             {
                 model.NmSocial = model.Name;
             }
+            
             var user = new User
             {
                 Email = model.Email.Trim().ToLower(),
