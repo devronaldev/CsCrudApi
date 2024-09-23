@@ -31,7 +31,7 @@ builder.Services.AddAuthentication(options =>
         };
     });
 
-builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"), new MySqlServerVersion(new Version(8,3,0))));
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"), new MySqlServerVersion(new Version(8,0,31))));
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
