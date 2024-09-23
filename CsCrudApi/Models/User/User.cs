@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace CsCrudApi.Models.User
 {
-    [Table("User")]
+    [Table("user")]
     public class User
     {
         [Key]
