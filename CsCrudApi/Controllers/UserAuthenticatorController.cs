@@ -73,19 +73,17 @@ namespace CsCrudApi.Controllers
             }
 
             // Verificar se o e-mail já existe
-            /*var verification = await IsEmailExistent(model.Email);
-
-            // Se o resultado for um ConflictResult, retornamos a mensagem
-            if (verification is ConflictObjectResult)
-            { 
+            var verification = await IsEmailExistent(model.Email.ToLower().Trim());
+            if (verification.Result is ConflictObjectResult)
+            {
                 return Conflict(new { message = "O e-mail informado já está cadastrado." });
-            }*/
+            };
 
 
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.Password);
 
-            //TESTAR ERROS COM URGÊNCIA
-
+            
+            //IMPLEMENTAR SUBSTITUIÇÃO DE NOME SOCIAL POR NOME!!!
             if (model.NmSocial == "" || model.NmSocial == null)
             {
                 model.NmSocial = model.Name;
@@ -124,6 +122,7 @@ namespace CsCrudApi.Controllers
         [HttpPost("email-existe")]
         public async Task<ActionResult<dynamic>> IsEmailExistent(string email)
         {
+            email.ToLower().Trim();
             if (string.IsNullOrEmpty(email))
             {
                 return BadRequest(new { message = "O e-mail não pode ser vazio." });
@@ -187,11 +186,10 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        /*
         [HttpPost("checkdeploy")]
         public async Task<ActionResult<dynamic>> CheckDeploy([FromBody] LoginDTO user)
         {
             return new { user };
-        }*/
+        }
     }
 }
