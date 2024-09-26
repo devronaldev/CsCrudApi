@@ -44,6 +44,9 @@ namespace CsCrudApi.Models.User
 
         [Required]
         public Color TpColor { get; set; }
+
+        [Required]
+        public bool IsEmailVerified {  get; set; }
     }
 
     // Enum for TpPreferencia

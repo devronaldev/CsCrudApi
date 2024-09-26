@@ -4,6 +4,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using CsCrudApi.Models.User;
 using Microsoft.IdentityModel.Tokens;
+using Services;
+using System.IdentityModel.Tokens.Jwt;
+using CsCrudApi.Services;
+using System.Security.Claims;
 
 namespace CsCrudApi.Controllers
 {
@@ -49,12 +53,8 @@ namespace CsCrudApi.Controllers
                 token, 
             };
         }
-
-        [HttpPost("checkdeploy")]
-        public async Task<ActionResult<dynamic>> CheckDeploy([FromBody] LoginDTO user)
-        {
-            return new { user };
-        }
+        
+        
 
         [HttpPost("register")]
         [AllowAnonymous]
@@ -82,6 +82,8 @@ namespace CsCrudApi.Controllers
                 TpColor = model.TpColor
             };
 
+            EmailServices.SendVerificationEmail(user);
+
             try
             {
                 _context.Users.Add(user);
@@ -94,5 +96,59 @@ namespace CsCrudApi.Controllers
                 return StatusCode(500, new { message = "Erro ao registrar usuário", error = ex.Message });
             }
         }
+
+        [HttpGet("verificar-email")]
+        public async Task<ActionResult<dynamic>> VerifyEmail(string token)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = TokenServices.GetKey();
+
+            try
+            {
+                // Validando o token
+                tokenHandler.ValidateToken(token, new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ClockSkew = TimeSpan.Zero // Para evitar problemas de expiração
+                }, out SecurityToken validatedToken);
+
+                var jwtToken = (JwtSecurityToken)validatedToken;
+                var emailClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email);
+
+                if (emailClaim == null)
+                {
+                    return BadRequest("Token inválido.");
+                }
+
+                var userEmail = emailClaim.Value;
+                var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == userEmail);
+
+                if (user == null)
+                {
+                    return BadRequest("Usuário não encontrado.");
+                }
+
+                user.IsEmailVerified = true; // Atualiza o campo no modelo
+                _context.Users.Update(user); // Atualiza o modelo no contexto em código
+                await _context.SaveChangesAsync(); // Passa o update para o Banco
+
+                return Ok("E-mail verificado com sucesso!");
+            }
+            catch
+            {
+                return BadRequest("Token inválido.");
+            }
+        }
+
+        /*
+        [HttpPost("checkdeploy")]
+        public async Task<ActionResult<dynamic>> CheckDeploy([FromBody] LoginDTO user)
+        {
+            return new { user };
+        }*/
     }
 }

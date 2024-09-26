@@ -36,5 +36,10 @@ namespace CsCrudApi.Services
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
+        public static byte[] GetKey()
+        {
+            var key = (Encoding.ASCII.GetBytes(_configuration["Secret"]));
+            return key;
+        }
     }
 }
