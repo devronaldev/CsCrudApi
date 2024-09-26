@@ -8,6 +8,7 @@ using Services;
 using System.IdentityModel.Tokens.Jwt;
 using CsCrudApi.Services;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace CsCrudApi.Controllers
 {
@@ -30,6 +31,7 @@ namespace CsCrudApi.Controllers
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Email == model.Email);
 
+
             if (user == null) 
             {
                 return NotFound(new
@@ -37,6 +39,13 @@ namespace CsCrudApi.Controllers
                     message = "Usuário ou senha inexistente"
                 });
             }
+
+            //ADICIONAR DEPOIS DE RESOLVER EMAIL SHOOTER
+            /*if (user.IsEmailVerified == false)
+            {
+                return BadRequest(new { message = "E-mail não verificado." });
+            }*/
+
             if (!BCrypt.Net.BCrypt.Verify(model.Password, user.Password)) 
             {
                 return Unauthorized(new
@@ -54,21 +63,34 @@ namespace CsCrudApi.Controllers
             };
         }
         
-        
-
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<ActionResult<dynamic>> Register([FromBody] User model)
         {
+            if (model == null)
+            {
+                return BadRequest(new { message = "O modelo do usuário não pode ser nulo." });
+            }
+
+            // Verificar se o e-mail já existe
+            /*var verification = await IsEmailExistent(model.Email);
+
+            // Se o resultado for um ConflictResult, retornamos a mensagem
+            if (verification is ConflictObjectResult)
+            { 
+                return Conflict(new { message = "O e-mail informado já está cadastrado." });
+            }*/
+
+
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.Password);
 
             //TESTAR ERROS COM URGÊNCIA
-            
+
             if (model.NmSocial == "" || model.NmSocial == null)
             {
                 model.NmSocial = model.Name;
             }
-            
+
             var user = new User
             {
                 Email = model.Email.Trim().ToLower(),
@@ -79,10 +101,12 @@ namespace CsCrudApi.Controllers
                 TpPreferencia = model.TpPreferencia,
                 DescTitulo = model.DescTitulo,
                 NmSocial = model.NmSocial.Trim(),
-                TpColor = model.TpColor
+                TpColor = model.TpColor,
+                CdCidade = model.CdCidade,
+                IsEmailVerified = model.IsEmailVerified
             };
 
-            EmailServices.SendVerificationEmail(user);
+            await EmailServices.SendVerificationEmail(user);
 
             try
             {
@@ -96,6 +120,25 @@ namespace CsCrudApi.Controllers
                 return StatusCode(500, new { message = "Erro ao registrar usuário", error = ex.Message });
             }
         }
+
+        [HttpPost("email-existe")]
+        public async Task<ActionResult<dynamic>> IsEmailExistent(string email)
+        {
+            if (string.IsNullOrEmpty(email))
+            {
+                return BadRequest(new { message = "O e-mail não pode ser vazio." });
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+            if (user != null)
+            {
+                return Conflict(new { message = "E-mail já cadastrado." });
+            }
+
+            return NotFound(new { message = "O e-mail não foi encontrado." });
+        }
+
 
         [HttpGet("verificar-email")]
         public async Task<ActionResult<dynamic>> VerifyEmail(string token)

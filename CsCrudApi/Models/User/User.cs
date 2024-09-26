@@ -5,18 +5,20 @@ using System.Runtime.CompilerServices;
 
 namespace CsCrudApi.Models.User
 {
-    [Table("User")]
+    [Table("usuario")]
     public class User
     {
         [Key]
+        [Column("id_usuario")]
         public int IdUser { get; set; }
 
         [Required]
+        [Column("cd_campus")]
         public int CdCampus { get; set; }
 
         [Required]
         [MaxLength(150)]
-        [Column("nmUser")]
+        [Column("nome")]
         public string Name { get; set; }
 
         [Required]
@@ -26,26 +28,36 @@ namespace CsCrudApi.Models.User
 
         [Required]
         [MaxLength(128)]
-        [Column("password")]
+        [Column("senha")]
         public string Password { get; set; }
 
         [Required]
+        [Column("data_nascimento")]
         public DateTime DtNasc { get; set; }
 
         [Required]
+        [Column("tipo_preferencia")]
         public Preferencia TpPreferencia { get; set; }
 
         [Required]
+        [Column("desc_titulo")]
         public Titulo DescTitulo { get; set; }
 
         [Required]
         [MaxLength(150)]
+        [Column("nome_social")]
         public string NmSocial { get; set; }
 
         [Required]
+        [Column("tipo_cor")]
         public Color TpColor { get; set; }
 
         [Required]
+        [Column("cd_cidade")]
+        public int CdCidade { get; set; }
+
+        [Required]
+        [Column("is_email_verified")]
         public bool IsEmailVerified {  get; set; }
     }
 
