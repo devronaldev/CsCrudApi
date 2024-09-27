@@ -20,13 +20,13 @@ namespace CsCrudApi.Services
         public static string GenerateToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_configuration["Secret"]);
+            var key = GetKey();
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
                 {
-                    new Claim(ClaimTypes.Name, user.Name.ToString()),
-                    new Claim(ClaimTypes.Email, user.Email.ToString()),
+                    new Claim(ClaimTypes.Name, user.Name),
+                    new Claim(ClaimTypes.Email, user.Email),
                     new Claim(ClaimTypes.Role, user.TpPreferencia.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddHours(2),
@@ -38,8 +38,19 @@ namespace CsCrudApi.Services
         }
         public static byte[] GetKey()
         {
-            var key = (Encoding.ASCII.GetBytes(_configuration["Secret"]));
-            return key;
+            if (_configuration == null)
+            {
+                throw new InvalidOperationException("A configuração não foi inicializada.");
+            }
+
+            var secret = _configuration["Secret"];
+
+            if (string.IsNullOrEmpty(secret))
+            {
+                throw new InvalidOperationException("Chave secreta não configurada no appsettings.json.");
+            }
+
+            return Encoding.ASCII.GetBytes(secret);
         }
     }
 }

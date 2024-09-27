@@ -41,10 +41,10 @@ namespace CsCrudApi.Controllers
             }
 
             //ADICIONAR DEPOIS DE RESOLVER EMAIL SHOOTER
-            /*if (user.IsEmailVerified == false)
+            if (user.IsEmailVerified == false)
             {
                 return BadRequest(new { message = "E-mail não verificado." });
-            }*/
+            }
 
             if (!BCrypt.Net.BCrypt.Verify(model.Password, user.Password)) 
             {
@@ -79,6 +79,7 @@ namespace CsCrudApi.Controllers
                 return Conflict(new { message = "O e-mail informado já está cadastrado." });
             };
 
+            // VERIFICAR ENUMS - CRIAR CÓDIGO
 
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.Password);
 
@@ -104,12 +105,11 @@ namespace CsCrudApi.Controllers
                 IsEmailVerified = model.IsEmailVerified
             };
 
-            await EmailServices.SendVerificationEmail(user);
-
             try
             {
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
+                await EmailServices.SendVerificationEmail(user);
                 return Ok(new { message = "Usuário registrado com sucesso!" });
             }
             catch (Exception ex)
@@ -119,10 +119,11 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        [HttpPost("email-existe")]
+        [HttpGet("email-existe")]
+        [AllowAnonymous]
         public async Task<ActionResult<dynamic>> IsEmailExistent(string email)
         {
-            email.ToLower().Trim();
+            email = email.ToLower().Trim();
             if (string.IsNullOrEmpty(email))
             {
                 return BadRequest(new { message = "O e-mail não pode ser vazio." });
@@ -140,6 +141,7 @@ namespace CsCrudApi.Controllers
 
 
         [HttpGet("verificar-email")]
+        [AllowAnonymous]
         public async Task<ActionResult<dynamic>> VerifyEmail(string token)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -157,18 +159,21 @@ namespace CsCrudApi.Controllers
                     ClockSkew = TimeSpan.Zero // Para evitar problemas de expiração
                 }, out SecurityToken validatedToken);
 
-                var jwtToken = (JwtSecurityToken)validatedToken;
-                var emailClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email);
-
-                if (emailClaim == null)
+                var jwtToken = validatedToken as JwtSecurityToken;
+                if (jwtToken == null)
                 {
-                    return BadRequest("Token inválido.");
+                    return BadRequest("Token inválido: não é um JWT.");
                 }
 
-                var userEmail = emailClaim.Value;
-                var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == userEmail);
+                var emailClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+                if (string.IsNullOrEmpty(emailClaim))
+                {
+                    return BadRequest("Token inválido, claim de e-mail ausente.");
+                }
 
+                // Busca o usuário no banco de dados
+                var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == emailClaim);
                 if (user == null)
                 {
                     return BadRequest("Usuário não encontrado.");
@@ -180,9 +185,9 @@ namespace CsCrudApi.Controllers
 
                 return Ok("E-mail verificado com sucesso!");
             }
-            catch
+            catch (Exception ex)
             {
-                return BadRequest("Token inválido.");
+                return BadRequest($"Token inválido. Erro: {ex.Message}");
             }
         }
 
