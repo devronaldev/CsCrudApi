@@ -20,8 +20,6 @@ namespace Services
             _apiKey = _configuration["SendGridKey"];
         }
 
-        //VERIFICAR SMTP E SERVIÇOS VIA GOOGLE CLOUD.
-
         public async Task SendEmailAsync(string toEmail, string subject, string plainTextContent, string htmlContent)
         {
             if (string.IsNullOrEmpty(_apiKey))
@@ -36,8 +34,7 @@ namespace Services
 
             var response = await client.SendEmailAsync(msg);
 
-            //VERIFICAR STATUS CODE
-            if (response.StatusCode != HttpStatusCode.OK)
+            if (response.StatusCode != HttpStatusCode.Accepted && response.StatusCode != HttpStatusCode.OK)
             {
                 // Aqui você pode logar ou tratar o erro da forma que preferir
                 throw new Exception($"Erro ao enviar e-mail1: {response.StatusCode} - Metódo: SendEmailAsync");
@@ -59,7 +56,7 @@ namespace Services
             }
             catch (Exception ex)
             {
-                // Log o erro ou trate de acordo
+                // LOG O ERRO OU TRATE DE ACORDO
                 Console.WriteLine($"Erro ao enviar e-mail2: {ex.Message} - Metódo: SendVerificationEmail");
             }
         }

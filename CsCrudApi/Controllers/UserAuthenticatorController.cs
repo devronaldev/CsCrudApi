@@ -79,13 +79,30 @@ namespace CsCrudApi.Controllers
                 return Conflict(new { message = "O e-mail informado já está cadastrado." });
             };
 
-            // VERIFICAR ENUMS - CRIAR CÓDIGO
+            // Validação do enum Preferencia
+            if (!Enum.IsDefined(typeof(Preferencia), model.TpPreferencia))
+            {
+                model.TpPreferencia = Preferencia.Produzir; // Define o valor default
+            }
+
+            // Validação do enum Titulo
+            if (!Enum.IsDefined(typeof(Titulo), model.DescTitulo))
+            {
+                model.DescTitulo = Titulo.Egresso; // Define o valor default
+            }
+
+            // Validação do enum Color
+            if (!Enum.IsDefined(typeof(Color), model.TpColor))
+            {
+                model.TpColor = Color.White; // Define o valor default
+            }
+
 
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.Password);
 
             
             //IMPLEMENTAR SUBSTITUIÇÃO DE NOME SOCIAL POR NOME!!!
-            if (model.NmSocial == "" || model.NmSocial == null)
+            if (model.NmSocial.IsNullOrEmpty())
             {
                 model.NmSocial = model.Name;
             }
@@ -102,7 +119,7 @@ namespace CsCrudApi.Controllers
                 NmSocial = model.NmSocial.Trim(),
                 TpColor = model.TpColor,
                 CdCidade = model.CdCidade,
-                IsEmailVerified = model.IsEmailVerified
+                IsEmailVerified = false
             };
 
             try
@@ -115,6 +132,7 @@ namespace CsCrudApi.Controllers
             catch (Exception ex)
             {
                 // Tratar exceções futuramente
+                // SÓ DEUS SABE
                 return StatusCode(500, new { message = "Erro ao registrar usuário", error = ex.Message });
             }
         }
@@ -138,7 +156,6 @@ namespace CsCrudApi.Controllers
 
             return NotFound(new { message = "O e-mail não foi encontrado." });
         }
-
 
         [HttpGet("verificar-email")]
         [AllowAnonymous]
