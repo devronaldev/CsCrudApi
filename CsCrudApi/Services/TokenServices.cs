@@ -2,7 +2,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
-using CsCrudApi.Models.User;
+using CsCrudApi.Models.UserRelated;
 
 namespace CsCrudApi.Services
 {

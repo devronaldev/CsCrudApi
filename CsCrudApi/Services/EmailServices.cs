@@ -1,4 +1,4 @@
-﻿using CsCrudApi.Models.User;
+﻿using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
 using System.Net;
 using System.Net.Mail;

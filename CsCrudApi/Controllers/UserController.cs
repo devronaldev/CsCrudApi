@@ -47,6 +47,8 @@ namespace CsCrudApi.Controllers
                 return NotFound("Campus com cidade não cadastrada ou cadastrado incorretamente.");
             }
             
+            int followers = await _context.UsersFollowing.CountAsync(u => u.CdFollowed == user.IdUser);
+
             return new 
             {
                 user.IdUser,
@@ -55,6 +57,7 @@ namespace CsCrudApi.Controllers
                 user.Email,
                 user.TpPreferencia,
                 user.DescTitulo,
+                followers,
                 cidade,
                 campus.Id,
                 campus.SgCampus,

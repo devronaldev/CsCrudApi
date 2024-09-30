@@ -2,13 +2,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using CsCrudApi.Models.User;
+using CsCrudApi.Models.UserRelated;
 using Microsoft.IdentityModel.Tokens;
 using Services;
 using System.IdentityModel.Tokens.Jwt;
 using CsCrudApi.Services;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace CsCrudApi.Controllers
 {

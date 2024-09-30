@@ -1,4 +1,4 @@
-﻿namespace CsCrudApi.Models.User
+﻿namespace CsCrudApi.Models.UserRelated
 {
     public class LoginDTO
     {
