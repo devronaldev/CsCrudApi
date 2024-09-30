@@ -37,11 +37,11 @@ namespace CsCrudApi.Models.User
 
         [Required]
         [Column("tipo_preferencia")]
-        public Preferencia TpPreferencia { get; set; }
+        public EPreferencia TpPreferencia { get; set; }
 
         [Required]
         [Column("desc_titulo")]
-        public Titulo DescTitulo { get; set; }
+        public ETitulo DescTitulo { get; set; }
 
         [Required]
         [MaxLength(150)]
@@ -50,7 +50,7 @@ namespace CsCrudApi.Models.User
 
         [Required]
         [Column("tipo_cor")]
-        public Color TpColor { get; set; }
+        public EColor TpColor { get; set; }
 
         [Required]
         [Column("cd_cidade")]
@@ -62,14 +62,14 @@ namespace CsCrudApi.Models.User
     }
 
     // Enum for TpPreferencia
-    public enum Preferencia
+    public enum EPreferencia
     {
         Orientar = 1,
         Produzir = 2
     }
 
     // Enum for DescTitulo
-    public enum Titulo
+    public enum ETitulo
     {
         Bacharel = 1,
         Mestre = 2,
@@ -81,7 +81,7 @@ namespace CsCrudApi.Models.User
     }
 
     // Enum for TpColor
-    public enum Color
+    public enum EColor
     {
         Dark = 0,
         White = 1,

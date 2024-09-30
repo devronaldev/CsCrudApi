@@ -80,21 +80,21 @@ namespace CsCrudApi.Controllers
             };
 
             // Validação do enum Preferencia
-            if (!Enum.IsDefined(typeof(Preferencia), model.TpPreferencia))
+            if (!Enum.IsDefined(typeof(EPreferencia), model.TpPreferencia))
             {
-                model.TpPreferencia = Preferencia.Produzir; // Define o valor default
+                model.TpPreferencia = EPreferencia.Produzir; // Define o valor default
             }
 
             // Validação do enum Titulo
-            if (!Enum.IsDefined(typeof(Titulo), model.DescTitulo))
+            if (!Enum.IsDefined(typeof(ETitulo), model.DescTitulo))
             {
-                model.DescTitulo = Titulo.Egresso; // Define o valor default
+                model.DescTitulo = ETitulo.Egresso; // Define o valor default
             }
 
             // Validação do enum Color
-            if (!Enum.IsDefined(typeof(Color), model.TpColor))
+            if (!Enum.IsDefined(typeof(EColor), model.TpColor))
             {
-                model.TpColor = Color.White; // Define o valor default
+                model.TpColor = EColor.White; // Define o valor default
             }
 
 
