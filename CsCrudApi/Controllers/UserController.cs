@@ -1,6 +1,12 @@
-﻿using CsCrudApi.Models;
+﻿using BCrypt.Net;
+using CsCrudApi.Models;
+using CsCrudApi.Models.UserRelated;
+using CsCrudApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Services;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace CsCrudApi.Controllers
 {
@@ -64,6 +70,88 @@ namespace CsCrudApi.Controllers
                 campus.CampusName,
                 cidadeCampus
             };
+        }
+
+        [HttpPost("atualizar-senha")]
+        public async Task<ActionResult<dynamic>> ChangePassword([FromHeader] string token, [FromBody] ChangePasswordRequest request)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = TokenServices.GetKey();
+
+            try
+            {
+                // Validando o token
+                tokenHandler.ValidateToken(token, new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ClockSkew = TimeSpan.Zero // Para evitar problemas de expiração
+                }, out SecurityToken validatedToken);
+
+                //Verificações de token
+                var jwtToken = validatedToken as JwtSecurityToken;
+                if (jwtToken == null)
+                {
+                    return BadRequest("Token inválido: não é um JWT.");
+                }
+
+                var emailClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+                if (string.IsNullOrEmpty(emailClaim))
+                {
+                    return BadRequest("Token inválido, claim de e-mail ausente.");
+                }
+
+                //Verificações de requisição
+                if (string.IsNullOrEmpty(request.OldPassword))
+                {
+                    return BadRequest("Senha anterior ausente.");
+                }
+
+                if (string.IsNullOrEmpty(request.NewPassword))
+                {
+                    return BadRequest("Senha nova ausente.");
+                }
+
+                if (!request.NewPassword.Equals(request.ConfirmPassword))
+                {
+                    return BadRequest("Senhas informadas não correspondem.");
+                }
+
+                //Verificações de usuário
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
+
+                if (user == null)
+                {
+                    return NotFound("Usuário não encontrado.");
+                }
+
+                if(!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.Password))
+                {
+                    return Unauthorized("Senha incorreta.");
+                }
+
+                //Update no banco de dados
+                var newPassword = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+                user.Password = newPassword;
+                await _context.SaveChangesAsync();
+
+                //Excluir instâncias de senhas
+                user.Password = "";
+                request.NewPassword = "";
+                request.OldPassword = "";
+                request.ConfirmPassword = "";
+
+                await EmailServices.ChangePasswordAdvice(user, DateTime.Now);
+
+                token = TokenServices.GenerateToken(user);
+                return Ok(new { token });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Erro na atualização: {ex.Message}");
+            }  
         }
     }
 }

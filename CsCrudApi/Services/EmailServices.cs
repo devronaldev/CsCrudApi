@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Mail;
 using SendGrid;
 using SendGrid.Helpers.Mail;
+using SendGrid.Helpers.Mail.Model;
 
 namespace Services
 {
@@ -46,9 +47,15 @@ namespace Services
             var token = TokenServices.GenerateToken(user); // Gerando o token para o usuário
 
             //TROCAR URL POR VARIÁVEL DE AMBIENTE
-            var verificationLink = $"http://localhost:5042/api/UserAuth/verificar-email?token={token}";
-            var plainTextContent = $"Por favor, clique no link para verificar seu e-mail: {verificationLink}";
-            var htmlContent = $"<strong>Por favor, clique no link para verificar seu e-mail:</strong> <a href='{verificationLink}'>Verificar E-mail</a>";
+            var verificationLink = $"http://localhost:5042/api/UserAuth/verificar-email?token={token}";            
+            var cancelationLink = $"http://localhost:5042/api/UserAuth/cancelar-cadastro?email={user.Email}";
+            var plainTextContent = $"Por favor, clique no link para verificar seu e-mail: {verificationLink}. Caso você não tenha solicitado cadastro, clique nesse link para cancelar inscrição: {cancelationLink}";
+            string htmlContent = GetHTMLContent("HTML/VerificationEmail.html");
+            
+            htmlContent = htmlContent.Replace("##NOME##", user.NmSocial);
+            htmlContent = htmlContent.Replace("##LINK_VERIFICACAO##", verificationLink);
+            htmlContent = htmlContent.Replace("##LINK_EXCLUIR_CADASTRO##", cancelationLink);
+
             try
             {
                 var emailService = new EmailServices();
@@ -59,6 +66,46 @@ namespace Services
                 // LOG O ERRO OU TRATE DE ACORDO
                 Console.WriteLine($"Erro ao enviar e-mail2: {ex.Message} - Metódo: SendVerificationEmail");
             }
+        }
+
+        //IMPLEMENTAR PARA MODO "ESQUECEU A SENHA"
+        /*
+        public static async Task SendPasswordChangeEmail (LoginDTO user)
+        {
+            LoginDTO loginDTO = new LoginDTO() { Email = user.Email, Password = user.Password};
+        }
+        */
+
+        //IMPLEMENTAR EMAIL PARA AVISO DE SENHA ALTERADA!
+        public static async Task ChangePasswordAdvice (User user, DateTime now)
+        {
+            var htmlContent = GetHTMLContent("HTML/ChangePasswordAdvice.html");
+
+            htmlContent = htmlContent.Replace("##NOME##", user.NmSocial);
+            htmlContent = htmlContent.Replace("##DIA_ALTERACAO##", now.Date.ToString());
+            htmlContent = htmlContent.Replace("##HORA_ALTERACAO##", now.TimeOfDay.ToString());
+            var plainTextContent = $"Olá {user.NmSocial}, sua senha foi alterada no dia {now.Date.ToString()} às {now.TimeOfDay.ToString()}, caso não tenha sido você clique nesse link: FUTURO LINK";
+
+            try
+            {
+                var emailService = new EmailServices();
+                await emailService.SendEmailAsync(user.Email, "Alteração de Senha", plainTextContent, htmlContent);
+            }
+            catch (Exception ex)
+            {
+                // LOG O ERRO OU TRATE DE ACORDO
+                Console.WriteLine($"Erro ao enviar e-mail2: {ex.Message} - Metódo: SendVerificationEmail");
+            }
+        }
+
+        private static string GetHTMLContent(string path)
+        {
+            string htmlContent = "";
+            using (var arquivoHTML = File.OpenText(path))
+            {
+                htmlContent = arquivoHTML.ReadToEnd();
+            }
+            return htmlContent;
         }
     }
 }

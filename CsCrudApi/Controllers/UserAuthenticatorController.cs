@@ -206,6 +206,35 @@ namespace CsCrudApi.Controllers
             }
         }
 
+        //ATUALIZAR PARA TOKEN
+        [HttpGet("cancelar-cadastro")]
+        public async Task<ActionResult<dynamic>> DeleteRegister(string email)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+            if (user == null)
+            {
+                return NotFound("E-mail não encontrado");
+            }
+
+            if (user.IsEmailVerified)
+            {
+                return BadRequest("E-mail já verificado. Impossível de excluir pré-cadastro. Caso tenha interesse, por favor, logar na página e ir até Configurações > Conta e Segurança e clicar no botão excluir perfil.");
+
+            }
+
+            try
+            {
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+                return Ok("Cadastro removido com sucesso.");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Erro na exclusão de registro: {ex.Message}");
+            }
+        }
+
         [HttpPost("checkdeploy")]
         public async Task<ActionResult<dynamic>> CheckDeploy([FromBody] LoginDTO user)
         {
