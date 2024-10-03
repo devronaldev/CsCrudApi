@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using CsCrudApi.Models.UserRelated;
 using Microsoft.IdentityModel.Tokens;
-using Services;
 using System.IdentityModel.Tokens.Jwt;
 using CsCrudApi.Services;
 
@@ -15,12 +14,7 @@ namespace CsCrudApi.Controllers
     public class UserAuthController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly IConfiguration _configuration;
-        public UserAuthController(ApplicationDbContext context, IConfiguration configuration) 
-        {
-            _context = context;
-            _configuration = configuration;
-        }
+        public UserAuthController(ApplicationDbContext context) => _context = context;
 
         [HttpPost("login")]
         [AllowAnonymous]
@@ -129,8 +123,7 @@ namespace CsCrudApi.Controllers
             }
             catch (Exception ex)
             {
-                // Tratar exceções futuramente
-                // SÓ DEUS SABE
+                //SE HOUVER ERRO SÓ DEUS SABE.
                 return StatusCode(500, new { message = "Erro ao registrar usuário", error = ex.Message });
             }
         }
@@ -174,6 +167,7 @@ namespace CsCrudApi.Controllers
                     ClockSkew = TimeSpan.Zero // Para evitar problemas de expiração
                 }, out SecurityToken validatedToken);
 
+                //MANTER ATÉ VERIFICAR UserController
                 var jwtToken = validatedToken as JwtSecurityToken;
                 if (jwtToken == null)
                 {

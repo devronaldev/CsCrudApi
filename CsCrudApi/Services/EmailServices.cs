@@ -6,7 +6,7 @@ using SendGrid;
 using SendGrid.Helpers.Mail;
 using SendGrid.Helpers.Mail.Model;
 
-namespace Services
+namespace CsCrudApi.Services
 {
     public class EmailServices
     {
@@ -42,6 +42,7 @@ namespace Services
             }
         }
 
+        //E-MAILs DE VERIFICAÇÃO:
         public static async Task SendVerificationEmail(User user)
         {
             var token = TokenServices.GenerateToken(user); // Gerando o token para o usuário
@@ -68,6 +69,12 @@ namespace Services
             }
         }
 
+        //IMPLEMENTAR EMAIL DE TROCA DE EMAIL
+        public static async Task ChangeEmailVerification(EmailVerification emailVerification, DateTime now)
+        {
+
+        }
+
         //IMPLEMENTAR PARA MODO "ESQUECEU A SENHA"
         /*
         public static async Task SendPasswordChangeEmail (LoginDTO user)
@@ -76,7 +83,7 @@ namespace Services
         }
         */
 
-        //IMPLEMENTAR EMAIL PARA AVISO DE SENHA ALTERADA!
+        //E-MAILs DE AVISO:
         public static async Task ChangePasswordAdvice (User user, DateTime now)
         {
             var htmlContent = GetHTMLContent("HTML/ChangePasswordAdvice.html");
@@ -84,7 +91,7 @@ namespace Services
             htmlContent = htmlContent.Replace("##NOME##", user.NmSocial);
             htmlContent = htmlContent.Replace("##DIA_ALTERACAO##", now.Date.ToString());
             htmlContent = htmlContent.Replace("##HORA_ALTERACAO##", now.TimeOfDay.ToString());
-            var plainTextContent = $"Olá {user.NmSocial}, sua senha foi alterada no dia {now.Date.ToString()} às {now.TimeOfDay.ToString()}, caso não tenha sido você clique nesse link: FUTURO LINK";
+            string plainTextContent = $"Olá {user.NmSocial}, sua senha foi alterada no dia {now.Date} às {now.TimeOfDay}, caso não tenha sido você clique nesse link: FUTURO LINK";
 
             try
             {
@@ -97,6 +104,13 @@ namespace Services
                 Console.WriteLine($"Erro ao enviar e-mail2: {ex.Message} - Metódo: SendVerificationEmail");
             }
         }
+
+        //IMPLEMENTAR
+        public static async Task ChangeEmailAdvice (User user, DateTime now)
+        {
+
+        }
+
 
         private static string GetHTMLContent(string path)
         {

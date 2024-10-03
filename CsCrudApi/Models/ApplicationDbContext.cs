@@ -19,6 +19,8 @@ namespace CsCrudApi.Models
 
         public DbSet<UserFollowingUser> UsersFollowing { get; set; }
 
+        public DbSet<EmailVerification> EmailVerifications { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Definir a chave composta
