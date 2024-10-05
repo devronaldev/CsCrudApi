@@ -50,12 +50,12 @@ namespace CsCrudApi.Controllers
             user.Password = "";
             return new 
             {
-                user,
+                Usuario = user,
                 token, 
             };
         }
         
-        [HttpPost("register")]
+        [HttpPost("cadastrar")]
         [AllowAnonymous]
         public async Task<ActionResult<dynamic>> Register([FromBody] User model)
         {

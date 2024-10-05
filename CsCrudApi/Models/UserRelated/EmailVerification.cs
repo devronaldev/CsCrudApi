@@ -10,6 +10,7 @@ namespace CsCrudApi.Models.UserRelated
         public int Id { get; set; }
 
         [Required]
+        [Column("user_id")]
         public int UserId { get; set; }
 
         [Required]

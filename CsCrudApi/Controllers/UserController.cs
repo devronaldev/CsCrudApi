@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using CsCrudApi.Services;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace CsCrudApi.Controllers
 {
@@ -46,25 +47,30 @@ namespace CsCrudApi.Controllers
             {
                 return NotFound("Campus com cidade não cadastrada ou cadastrado incorretamente.");
             }
-            
-            int followers = await _context.UsersFollowing.CountAsync(u => u.CdFollowed == user.IdUser);
+
+            int followers = await GetFollowers(user.IdUser);
+
+            int following = await GetFollowing(user.IdUser);
 
             return new 
             {
-                user.IdUser,
-                user.NmSocial,
+                IdUsuario = user.IdUser,
+                NmUsuario = user.NmSocial,
                 user.DtNasc,
                 user.Email,
                 user.TpPreferencia,
                 user.DescTitulo,
-                followers,
-                cidade,
-                campus.Id,
+                Seguidores = followers,
+                Seguindo = following,
+                Cidade = cidade,
+                IdCampus = campus.Id,
                 campus.SgCampus,
-                campus.CampusName,
-                cidadeCampus
+                NmCampus = campus.CampusName,
+                CidadeCampus = cidadeCampus 
             };
         }
+
+        
 
         [HttpPost("atualizar-senha")]
         public async Task<ActionResult<dynamic>> ChangePassword([FromHeader] string token, [FromBody] ChangePasswordRequest request)
@@ -84,7 +90,7 @@ namespace CsCrudApi.Controllers
                     ClockSkew = TimeSpan.Zero // Para evitar problemas de expiração
                 }, out SecurityToken validatedToken);
 
-                //Verificações de token
+                //Verificações de token com Email
                 if (validatedToken as JwtSecurityToken == null)
                 {
                     return BadRequest("Token inválido: não é um JWT.");
@@ -148,30 +154,21 @@ namespace CsCrudApi.Controllers
         }
 
         [HttpPost("atualizar-email")]
-        public async Task<ActionResult<dynamic>> ChangeEmail([FromHeader] string token, [FromBody] ChangeEmailRequest request)
-        {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = TokenServices.GetKey();
-
+        public async Task<ActionResult<dynamic>> ChangeEmailRequest([FromHeader] string token, [FromBody] ChangeEmailRequest request)
+        {   
+            if (token == null) { NotFound($"Erro: Token '{token}' vazio"); }
+            
             try
             {
                 // Validando o token
-                tokenHandler.ValidateToken(token, new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ClockSkew = TimeSpan.Zero // Para evitar problemas de expiração
-                }, out SecurityToken validatedToken);
+                var claimsPrincipal = TokenServices.ValidateJwtToken(token);
 
-                //Verificações de token
-                if (validatedToken is not JwtSecurityToken jwtToken)
+                if (claimsPrincipal == null) 
                 {
-                    return BadRequest("Erro: Token inválido: não é um JWT.");
+                    return BadRequest("Erro: Token inválido ou não pode ser validado.");
                 }
 
-                var emailClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+                var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
                 if (string.IsNullOrEmpty(emailClaim))
                 {
                     return BadRequest("Erro: Token inválido, claim de e-mail ausente.");
@@ -189,7 +186,7 @@ namespace CsCrudApi.Controllers
                 }
 
                 //Instanciando no banco de dados.
-                var user  = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
 
                 if (user == null)
                 {
@@ -202,7 +199,7 @@ namespace CsCrudApi.Controllers
                     return Conflict("Erro: Novo e-mail não pode ser igual ao anterior");
                 }
     
-                await EmailServices.ChangeEmailAdvice(user, DateTime.Now);
+                await EmailServices.ChangeEmailAdvice(user, DateTime.Now, request.Email);
 
                 var emailVerification = new EmailVerification
                 {
@@ -227,9 +224,50 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        private string GenerateVerificationToken()
+        [HttpGet("trocar-email")]
+        public async Task<ActionResult<dynamic>> ChangeEmailVerification(string token)
         {
-            return Guid.NewGuid().ToString();
+            var emailVerification = await _context.EmailVerifications.FirstOrDefaultAsync(e => e.VerificationToken == token);
+
+            if (emailVerification == null)
+            {
+                return NotFound("Erro: Token inválido ou expirado");
+            }
+
+            if (emailVerification.ExpiresAt < DateTime.Now) 
+            {
+                return StatusCode(410, "Erro: A requisição de troca de e-mail expirou.");
+            }
+
+            int doesEmailExist = await _context.Users.CountAsync(u => u.Email == emailVerification.NewEmail);
+
+            if (doesEmailExist != 0)
+            {
+                return Conflict("Erro: O e-mail já está conectado a outro usuário.");
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.IdUser == emailVerification.UserId);
+
+            if (user == null)
+            {
+                return NotFound("Erro: Usuário não encontrado");
+            }
+
+            string previousEmail = user.Email;
+            user.Email = emailVerification.NewEmail;
+            emailVerification.NewEmail = previousEmail;
+            emailVerification.IsVerified = true;
+            emailVerification.ExpiresAt = DateTime.Now.AddMonths(1);
+
+            // Salvar as alterações no Banco de Dados
+            await _context.SaveChangesAsync();
+            return Ok();
         }
+
+        protected string GenerateVerificationToken() => Guid.NewGuid().ToString();
+
+        protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);
+
+        protected async Task<int> GetFollowing(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollower == idUser);
     }
 }

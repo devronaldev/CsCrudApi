@@ -52,5 +52,37 @@ namespace CsCrudApi.Services
 
             return Encoding.ASCII.GetBytes(secret);
         }
+
+        public static ClaimsPrincipal? ValidateJwtToken(string token)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = GetKey();
+
+            try
+            {
+                // Configura os parâmetros de validação
+                var validationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = false, // Se quiser validar o emissor, altere para true
+                    ValidateAudience = false, // Se quiser validar a audiência, altere para true
+                    ClockSkew = TimeSpan.Zero // Define o tempo de tolerância para expiração
+                };
+
+                // Valida o token e obtém as informações de segurança
+                var principal = tokenHandler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);
+
+                // Retorna as "claims" associadas ao token
+                return principal;
+            }
+            catch (Exception ex)
+            {
+                // Caso a validação falhe, você pode tratar o erro aqui, logar a exceção, etc.
+                Console.WriteLine($"Erro de validação do token: {ex.Message}");
+                return null;
+            }
+        }
+
     }
 }

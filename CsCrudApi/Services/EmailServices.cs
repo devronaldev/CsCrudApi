@@ -69,10 +69,23 @@ namespace CsCrudApi.Services
             }
         }
 
-        //IMPLEMENTAR EMAIL DE TROCA DE EMAIL
         public static async Task ChangeEmailVerification(EmailVerification emailVerification, DateTime now)
         {
+            var htmlContent = GetHTMLContent("HTML/VerificationNewEmail.html");
+            string verificationLink = $"http://localhost:5042/api/User/trocar-email?token={emailVerification.VerificationToken}";
+            string plainTextContent = $"Clique no link {verificationLink} para verificar o novo e-mail, caso não tenha sido você clique aqui para cancelar a requisição: FUTURO LINK" ;
+            htmlContent = htmlContent.Replace("##LINK_VERIFICACAO##", verificationLink);
 
+            try
+            {
+                var emailService = new EmailServices();
+                await emailService.SendEmailAsync(emailVerification.NewEmail, "Verificação de novo E-mail", plainTextContent, htmlContent);
+            }
+            catch (Exception ex)
+            {
+                // LOG O ERRO OU TRATE DE ACORDO
+                Console.WriteLine($"Erro ao enviar e-mail2: {ex.Message} - Metódo: ChangeEmailVerification");
+            }
         }
 
         //IMPLEMENTAR PARA MODO "ESQUECEU A SENHA"
@@ -83,15 +96,15 @@ namespace CsCrudApi.Services
         }
         */
 
-        //E-MAILs DE AVISO:
+        //E-MAILs DE AVISO - IMPLEMENTAR CANCELAMENTO DE ALTERAÇÕES:
         public static async Task ChangePasswordAdvice (User user, DateTime now)
         {
             var htmlContent = GetHTMLContent("HTML/ChangePasswordAdvice.html");
 
             htmlContent = htmlContent.Replace("##NOME##", user.NmSocial);
-            htmlContent = htmlContent.Replace("##DIA_ALTERACAO##", now.Date.ToString());
-            htmlContent = htmlContent.Replace("##HORA_ALTERACAO##", now.TimeOfDay.ToString());
-            string plainTextContent = $"Olá {user.NmSocial}, sua senha foi alterada no dia {now.Date} às {now.TimeOfDay}, caso não tenha sido você clique nesse link: FUTURO LINK";
+            htmlContent = htmlContent.Replace("##DIA_ALTERACAO##", $"{now.Day}/{now.Month}/{now.Year}");
+            htmlContent = htmlContent.Replace("##HORA_ALTERACAO##", $"{now.Hour}:{now.Minute}:{now.Second}");
+            string plainTextContent = $"Olá {user.NmSocial}, sua senha foi alterada no dia {now.Day}/{now.Month}/{now.Year} às {now.Hour}:{now.Minute}:{now.Second}, caso não tenha sido você clique nesse link: FUTURO LINK";
 
             try
             {
@@ -101,14 +114,29 @@ namespace CsCrudApi.Services
             catch (Exception ex)
             {
                 // LOG O ERRO OU TRATE DE ACORDO
-                Console.WriteLine($"Erro ao enviar e-mail2: {ex.Message} - Metódo: SendVerificationEmail");
+                Console.WriteLine($"Erro ao enviar e-mail: {ex.Message} - Metódo: ChangePasswordAdvice");
             }
         }
 
-        //IMPLEMENTAR
-        public static async Task ChangeEmailAdvice (User user, DateTime now)
+        public static async Task ChangeEmailAdvice (User user, DateTime now, string newEMail)
         {
+            var htmlContent = GetHTMLContent("HTML/ChangeEmailAdvice.html");
+            string plainTextContent = $"Olá {user.NmSocial}, houve uma alteração no seu e-mail no dia {now.Day} às {now.TimeOfDay}, caso não tenha sido você clique nesse link: FUTURO LINK";
 
+            htmlContent = htmlContent.Replace("##NOME##", user.NmSocial);
+            htmlContent = htmlContent.Replace("##NOVO_EMAIL##", newEMail);
+            htmlContent = htmlContent.Replace("##DIA_ALTERACAO##", $"{now.Day}/{now.Month}/{now.Year}");
+            htmlContent = htmlContent.Replace("##HORA_ALTERACAO##", $"{now.Hour}:{now.Minute}:{now.Second}");
+
+            try
+            {
+                var emailService = new EmailServices();
+                await emailService.SendEmailAsync(user.Email, "Alteração de Email", plainTextContent, htmlContent);
+            }
+            catch (Exception ex) { 
+                // LOG O ERRO OU TRATE DE ACORDO
+                Console.WriteLine($"Erro ao enviar e-mail: {ex.Message} - Metódo: ChangeEmailAdvice");
+            }
         }
 
 
