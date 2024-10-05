@@ -84,5 +84,6 @@ namespace CsCrudApi.Services
             }
         }
 
+        public static string GenerateGUIDString() => Guid.NewGuid().ToString("N");
     }
 }

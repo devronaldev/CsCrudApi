@@ -1,4 +1,5 @@
 ﻿using CsCrudApi.Models;
+using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.UserRelated;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,6 +22,10 @@ namespace CsCrudApi.Models
 
         public DbSet<EmailVerification> EmailVerifications { get; set; }
 
+        public DbSet<PostRelated.Post> Posts { get; set; }
+
+        public DbSet<PostRelated.PostAuthors> PostAuthors { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Definir a chave composta
@@ -39,6 +44,21 @@ namespace CsCrudApi.Models
                 .WithMany()
                 .HasForeignKey(uf => uf.CdFollowed)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PostAuthors>()
+                .HasKey(pa => new { pa.CdUser, pa.GuidPost });
+
+            modelBuilder.Entity<PostAuthors>()
+                .HasOne<Post>()
+                .WithMany()
+                .HasForeignKey(pa => pa.GuidPost)
+                .HasPrincipalKey(p => p.Guid);
+
+            modelBuilder.Entity<PostAuthors>()
+               .HasOne<User>()
+               .WithMany()
+               .HasForeignKey(pa => pa.CdUser)
+               .HasPrincipalKey(u => u.IdUser);
 
             base.OnModelCreating(modelBuilder);
         }

@@ -205,7 +205,7 @@ namespace CsCrudApi.Controllers
                 {
                     UserId = user.IdUser,
                     NewEmail = request.Email,
-                    VerificationToken = GenerateVerificationToken(),
+                    VerificationToken = TokenServices.GenerateGUIDString(),
                     CreatedAt = DateTime.Now,
                     ExpiresAt = DateTime.Now.AddHours(1)
                 };
@@ -264,7 +264,7 @@ namespace CsCrudApi.Controllers
             return Ok();
         }
 
-        protected string GenerateVerificationToken() => Guid.NewGuid().ToString();
+        
 
         protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);
 
