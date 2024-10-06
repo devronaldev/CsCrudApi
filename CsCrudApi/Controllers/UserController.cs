@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using CsCrudApi.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using CsCrudApi.Models.PostRelated;
 
 namespace CsCrudApi.Controllers
 {
@@ -52,7 +53,33 @@ namespace CsCrudApi.Controllers
 
             int following = await GetFollowing(user.IdUser);
 
-            return new 
+            List<Post> posts = new List<Post>();
+
+            for (int i = 0; i < 5; i++)
+            {
+                var post = await _context.Posts
+                    .Where(p => !posts.Select(x => x.Guid).Contains(p.Guid))
+                    .OrderByDescending(p => p.PostDate)
+                    .FirstOrDefaultAsync();
+
+                if (post == null)
+                {
+                    break;
+                }
+
+                posts.Add(post);
+            }
+
+            List<string> listaPosts = new List<string>();
+
+            foreach (var post in posts)
+            {
+                listaPosts.Add(post.Guid);
+            }
+
+
+
+            return new
             {
                 IdUsuario = user.IdUser,
                 NmUsuario = user.NmSocial,
@@ -66,7 +93,9 @@ namespace CsCrudApi.Controllers
                 IdCampus = campus.Id,
                 campus.SgCampus,
                 NmCampus = campus.CampusName,
-                CidadeCampus = cidadeCampus 
+                CidadeCampus = cidadeCampus,
+                GuidPosts = listaPosts,
+                Posts = posts
             };
         }
 
@@ -269,5 +298,12 @@ namespace CsCrudApi.Controllers
         protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);
 
         protected async Task<int> GetFollowing(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollower == idUser);
+
+        protected async Task<List<string>> UpdatePosts(List<string> postUsed)
+        {
+            List<string> posts = new List<string>();
+            posts.AddRange(postUsed);
+            return posts;
+        }
     }
 }
