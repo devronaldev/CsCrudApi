@@ -147,7 +147,8 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        public async Task<ActionResult<dynamic>> PostList(List<string> listaPosts)
+        /*
+         * public async Task<ActionResult<dynamic>> PostList(List<string> listaPosts)
         {
             List<Post> posts = new();
 
@@ -173,6 +174,6 @@ namespace CsCrudApi.Controllers
                 listaPosts.Add(post.Guid);
             }
             return new { };
-        }
-    }
+        } */
+    } 
 }
