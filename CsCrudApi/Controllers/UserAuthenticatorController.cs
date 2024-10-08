@@ -6,6 +6,7 @@ using CsCrudApi.Models.UserRelated;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using CsCrudApi.Services;
+using CsCrudApi.Models.UserRelated.Request;
 
 namespace CsCrudApi.Controllers
 {

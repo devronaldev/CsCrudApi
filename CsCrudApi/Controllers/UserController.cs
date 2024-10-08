@@ -9,6 +9,7 @@ using CsCrudApi.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using CsCrudApi.Models.PostRelated;
+using CsCrudApi.Models.UserRelated.Request;
 
 namespace CsCrudApi.Controllers
 {
@@ -93,7 +94,7 @@ namespace CsCrudApi.Controllers
                 IdCampus = campus.Id,
                 campus.SgCampus,
                 NmCampus = campus.CampusName,
-                CidadeCampus = cidadeCampus,
+                CidadeCampus = cidadeCampus, // REMOVER CIDADE CAMPUS
                 GuidPosts = listaPosts,
                 Posts = posts
             };

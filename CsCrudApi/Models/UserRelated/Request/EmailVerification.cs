@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CsCrudApi.Models.UserRelated
+namespace CsCrudApi.Models.UserRelated.Request
 {
     [Table("EmailVerification")]
     public class EmailVerification
@@ -15,7 +15,7 @@ namespace CsCrudApi.Models.UserRelated
 
         [Required]
         [Column("novo_email")]
-        public string NewEmail {  get; set; }
+        public string NewEmail { get; set; }
 
         [Required]
         [Column("verification_token")]

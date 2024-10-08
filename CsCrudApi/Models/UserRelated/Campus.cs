@@ -1,18 +1,18 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CsCrudApi.Models
+namespace CsCrudApi.Models.UserRelated
 {
     [Table("campus")]
     public class Campus
     {
-        [Key] 
+        [Key]
         [Required]
         [Column("id_campus")]
         public int Id { get; set; }
 
         [Column("sg_campus")]
-        public string SgCampus {  get; set; }
+        public string SgCampus { get; set; }
 
         [Column("desc_campus")]
         public string CampusName { get; set; }

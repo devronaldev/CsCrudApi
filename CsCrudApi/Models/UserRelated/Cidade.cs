@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CsCrudApi.Models
+namespace CsCrudApi.Models.UserRelated
 {
     [Table("cidade")]
     public class Cidade

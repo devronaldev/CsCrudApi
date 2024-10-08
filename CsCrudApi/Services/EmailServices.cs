@@ -5,6 +5,7 @@ using System.Net.Mail;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using SendGrid.Helpers.Mail.Model;
+using CsCrudApi.Models.UserRelated.Request;
 
 namespace CsCrudApi.Services
 {

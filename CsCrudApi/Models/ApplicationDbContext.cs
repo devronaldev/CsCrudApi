@@ -1,6 +1,6 @@
-﻿using CsCrudApi.Models;
-using CsCrudApi.Models.PostRelated;
+﻿using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.UserRelated;
+using CsCrudApi.Models.UserRelated.Request;
 using Microsoft.EntityFrameworkCore;
 
 namespace CsCrudApi.Models

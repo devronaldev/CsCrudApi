@@ -146,5 +146,33 @@ namespace CsCrudApi.Controllers
                 return StatusCode(500, new { error = "Erro ao criar o post na segunda tentativa", details = ex.Message });
             }
         }
+
+        public async Task<ActionResult<dynamic>> PostList(List<string> listaPosts)
+        {
+            List<Post> posts = new();
+
+            for (int i = 0; i < 5; i++)
+            {
+                var post = await _context.Posts
+                    .Where(p => !listaPosts.Contains(p.Guid));
+                    //.OrderByDescending(p => p.PostDate)
+                    //.FirstOrDefaultAsync();
+
+                if (post == null)
+                {
+                    break;
+                }
+
+                posts.Add(post);
+            }
+
+            List<string> listaPosts = new List<string>();
+
+            foreach (var post in posts)
+            {
+                listaPosts.Add(post.Guid);
+            }
+            return new { };
+        }
     }
 }
