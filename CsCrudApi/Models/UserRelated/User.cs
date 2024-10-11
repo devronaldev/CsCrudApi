@@ -1,22 +1,22 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Runtime.CompilerServices;
 
-namespace CsCrudApi.Models.User
+namespace CsCrudApi.Models.UserRelated
 {
-    [Table("user")]
+    [Table("usuario")]
     public class User
     {
         [Key]
+        [Column("id_usuario")]
         public int IdUser { get; set; }
 
         [Required]
+        [Column("cd_campus")]
         public int CdCampus { get; set; }
 
         [Required]
         [MaxLength(150)]
-        [Column("nmUser")]
+        [Column("nome")]
         public string Name { get; set; }
 
         [Required]
@@ -26,35 +26,48 @@ namespace CsCrudApi.Models.User
 
         [Required]
         [MaxLength(128)]
-        [Column("password")]
+        [Column("senha")]
         public string Password { get; set; }
 
         [Required]
+        [Column("data_nascimento")]
         public DateTime DtNasc { get; set; }
 
         [Required]
-        public Preferencia TpPreferencia { get; set; }
+        [Column("tipo_preferencia")]
+        public EPreferencia TpPreferencia { get; set; }
 
         [Required]
-        public Titulo DescTitulo { get; set; }
+        [Column("desc_titulo")]
+        public ETitulo DescTitulo { get; set; }
 
         [Required]
         [MaxLength(150)]
+        [Column("nome_social")]
         public string NmSocial { get; set; }
 
         [Required]
-        public Color TpColor { get; set; }
+        [Column("tipo_cor")]
+        public EColor TpColor { get; set; }
+
+        [Required]
+        [Column("cd_cidade")]
+        public int CdCidade { get; set; }
+
+        [Required]
+        [Column("is_email_verified")]
+        public bool IsEmailVerified {  get; set; }
     }
 
     // Enum for TpPreferencia
-    public enum Preferencia
+    public enum EPreferencia
     {
         Orientar = 1,
         Produzir = 2
     }
 
     // Enum for DescTitulo
-    public enum Titulo
+    public enum ETitulo
     {
         Bacharel = 1,
         Mestre = 2,
@@ -66,7 +79,7 @@ namespace CsCrudApi.Models.User
     }
 
     // Enum for TpColor
-    public enum Color
+    public enum EColor
     {
         Dark = 0,
         White = 1,

@@ -2,7 +2,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
-using CsCrudApi.Models.User;
+using CsCrudApi.Models.UserRelated;
 
 namespace CsCrudApi.Services
 {
@@ -20,13 +20,13 @@ namespace CsCrudApi.Services
         public static string GenerateToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_configuration["Secret"]);
+            var key = GetKey();
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
                 {
-                    new Claim(ClaimTypes.Name, user.Name.ToString()),
-                    new Claim(ClaimTypes.Email, user.Email.ToString()),
+                    new Claim(ClaimTypes.Name, user.Name),
+                    new Claim(ClaimTypes.Email, user.Email),
                     new Claim(ClaimTypes.Role, user.TpPreferencia.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddHours(2),
@@ -36,5 +36,54 @@ namespace CsCrudApi.Services
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
+        public static byte[] GetKey()
+        {
+            if (_configuration == null)
+            {
+                throw new InvalidOperationException("A configuração não foi inicializada.");
+            }
+
+            var secret = _configuration["Secret"];
+
+            if (string.IsNullOrEmpty(secret))
+            {
+                throw new InvalidOperationException("Chave secreta não configurada no appsettings.json.");
+            }
+
+            return Encoding.ASCII.GetBytes(secret);
+        }
+
+        public static ClaimsPrincipal? ValidateJwtToken(string token)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = GetKey();
+
+            try
+            {
+                // Configura os parâmetros de validação
+                var validationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = false, // Se quiser validar o emissor, altere para true
+                    ValidateAudience = false, // Se quiser validar a audiência, altere para true
+                    ClockSkew = TimeSpan.Zero // Define o tempo de tolerância para expiração
+                };
+
+                // Valida o token e obtém as informações de segurança
+                var principal = tokenHandler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);
+
+                // Retorna as "claims" associadas ao token
+                return principal;
+            }
+            catch (Exception ex)
+            {
+                // Caso a validação falhe, você pode tratar o erro aqui, logar a exceção, etc.
+                Console.WriteLine($"Erro de validação do token: {ex.Message}");
+                return null;
+            }
+        }
+
+        public static string GenerateGUIDString() => Guid.NewGuid().ToString("N");
     }
 }
