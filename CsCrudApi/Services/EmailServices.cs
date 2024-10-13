@@ -8,8 +8,8 @@ namespace CsCrudApi.Services
 {
     public class EmailServices
     {
-        private readonly string _apiKey;
-        private static IConfiguration _configuration;
+        private readonly string? _apiKey;
+        private static IConfiguration? _configuration;
         public EmailServices()
         {
             var configurationBuilder = new ConfigurationBuilder()

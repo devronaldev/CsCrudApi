@@ -5,7 +5,6 @@ using CsCrudApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using CsCrudApi.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using CsCrudApi.Models.PostRelated;
@@ -110,23 +109,13 @@ namespace CsCrudApi.Controllers
 
             try
             {
-                // Validando o token
-                tokenHandler.ValidateToken(token, new TokenValidationParameters
+                var claimsPrincipal = TokenServices.ValidateJwtToken(token);
+                if (claimsPrincipal == null)
                 {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ClockSkew = TimeSpan.Zero // Para evitar problemas de expiração
-                }, out SecurityToken validatedToken);
-
-                //Verificações de token com Email
-                if (validatedToken as JwtSecurityToken == null)
-                {
-                    return BadRequest("Token inválido: não é um JWT.");
+                    return BadRequest("Erro: Token inválido ou não pode ser validado.");
                 }
 
-                var emailClaim = (validatedToken as JwtSecurityToken).Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+                var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
                 if (string.IsNullOrEmpty(emailClaim))
                 {
                     return BadRequest("Token inválido, claim de e-mail ausente.");
@@ -186,13 +175,12 @@ namespace CsCrudApi.Controllers
         [HttpPost("atualizar-email")]
         public async Task<ActionResult<dynamic>> ChangeEmailRequest([FromHeader] string token, [FromBody] ChangeEmailRequest request)
         {   
-            if (token == null) { NotFound($"Erro: Token '{token}' vazio"); }
+            if (string.IsNullOrEmpty(token)) { NotFound($"Erro: Token '{token}' vazio"); }
             
             try
             {
                 // Validando o token
                 var claimsPrincipal = TokenServices.ValidateJwtToken(token);
-
                 if (claimsPrincipal == null) 
                 {
                     return BadRequest("Erro: Token inválido ou não pode ser validado.");
@@ -209,20 +197,16 @@ namespace CsCrudApi.Controllers
                 {
                     return BadRequest("Erro: E-mail vazio");
                 }
-
                 if (!string.Equals(request.EmailConfirm, request.Email))
                 {
                     return BadRequest("Erro: E-mails diferentes.");
                 }
 
-                //Instanciando no banco de dados.
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
-
                 if (user == null)
                 {
                     return NotFound("Erro: E-mail não cadastrado.");
                 }
-
                 if (user.Email.Equals(request.Email))
                 {
                     //NÃO ACREDITO QUE VOU FAZER ISSO
@@ -258,26 +242,22 @@ namespace CsCrudApi.Controllers
         public async Task<ActionResult<dynamic>> ChangeEmailVerification(string token)
         {
             var emailVerification = await _context.EmailVerifications.FirstOrDefaultAsync(e => e.VerificationToken == token);
-
             if (emailVerification == null)
             {
                 return NotFound("Erro: Token inválido ou expirado");
             }
-
             if (emailVerification.ExpiresAt < DateTime.Now) 
             {
                 return StatusCode(410, "Erro: A requisição de troca de e-mail expirou.");
             }
 
             int doesEmailExist = await _context.Users.CountAsync(u => u.Email == emailVerification.NewEmail);
-
             if (doesEmailExist != 0)
             {
                 return Conflict("Erro: O e-mail já está conectado a outro usuário.");
             }
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.IdUser == emailVerification.UserId);
-
             if (user == null)
             {
                 return NotFound("Erro: Usuário não encontrado");
@@ -289,22 +269,18 @@ namespace CsCrudApi.Controllers
             emailVerification.IsVerified = true;
             emailVerification.ExpiresAt = DateTime.Now.AddMonths(1);
 
-            // Salvar as alterações no Banco de Dados
             await _context.SaveChangesAsync();
             return Ok();
         }
-
-        
 
         protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);
 
         protected async Task<int> GetFollowing(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollower == idUser);
 
+        //CRIAR ENDPOINT
         protected async Task<List<string>> UpdatePosts(List<string> postUsed)
         {
-            List<string> posts = new List<string>();
-            posts.AddRange(postUsed);
-            return posts;
+            return postUsed;
         }
     }
 }
