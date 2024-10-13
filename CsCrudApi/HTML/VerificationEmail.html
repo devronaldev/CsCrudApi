@@ -4,13 +4,63 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verificação de E-mail</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333333;
+            font-size: 24px;
+        }
+
+        p {
+            color: #555555;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+
+        a {
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .footer {
+            font-size: 12px;
+            color: #aaaaaa;
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Olá ##NOME##,</h1>
-    <p>Por favor, clique no link abaixo para verificar seu e-mail:</p>
-    <p><a href="##LINK_VERIFICACAO##"><b>Verificar E-mail</b></a></p>
-    <br />
-    <br />
-    <p>Se você não solicitou essa verificação, por favor, <a href="##LINK_EXCLUIR_CADASTRO##"><strong>CLIQUE AQUI</strong></a> para desassociar seu e-mail ao cadastro.</p>
+    <div class="email-container">
+        <h1>Olá ##NOME##,</h1>
+        <p>Por favor, clique no link abaixo para verificar seu e-mail:</p>
+        <p><a href="##LINK_VERIFICACAO##" class="btn"><b>Verificar E-mail</b></a></p>
+        <br />
+        <p>Se você não solicitou essa verificação, por favor, <a href="##LINK_EXCLUIR_CADASTRO##"><strong>CLIQUE AQUI</strong></a> para desassociar seu e-mail ao cadastro.</p>
+    </div>
 </body>
 </html>

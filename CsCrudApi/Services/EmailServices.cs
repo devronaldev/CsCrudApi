@@ -1,10 +1,7 @@
 ﻿using CsCrudApi.Models.UserRelated;
-using CsCrudApi.Services;
 using System.Net;
-using System.Net.Mail;
 using SendGrid;
 using SendGrid.Helpers.Mail;
-using SendGrid.Helpers.Mail.Model;
 using CsCrudApi.Models.UserRelated.Request;
 
 namespace CsCrudApi.Services
@@ -22,6 +19,7 @@ namespace CsCrudApi.Services
             _apiKey = _configuration["SendGridKey"];
         }
 
+        //Email Sender
         public async Task SendEmailAsync(string toEmail, string subject, string plainTextContent, string htmlContent)
         {
             if (string.IsNullOrEmpty(_apiKey))
@@ -49,10 +47,10 @@ namespace CsCrudApi.Services
             var token = TokenServices.GenerateToken(user); // Gerando o token para o usuário
 
             //TROCAR URL POR VARIÁVEL DE AMBIENTE
-            var verificationLink = $"http://localhost:5042/api/UserAuth/verificar-email?token={token}";            
-            var cancelationLink = $"http://localhost:5042/api/UserAuth/cancelar-cadastro?email={user.Email}";
+            var verificationLink = $"https://cscrudapi.onrender.com/api/UserAuth/verificar-email?token={token}";            
+            var cancelationLink = $"https://cscrudapi.onrender.com/api/UserAuth/cancelar-cadastro?email={user.Email}";
             var plainTextContent = $"Por favor, clique no link para verificar seu e-mail: {verificationLink}. Caso você não tenha solicitado cadastro, clique nesse link para cancelar inscrição: {cancelationLink}";
-            string htmlContent = GetHTMLContent("HTML/VerificationEmail.html");
+            string htmlContent = await GetHTMLContent("VerificationEmail");
             
             htmlContent = htmlContent.Replace("##NOME##", user.NmSocial);
             htmlContent = htmlContent.Replace("##LINK_VERIFICACAO##", verificationLink);
@@ -72,8 +70,8 @@ namespace CsCrudApi.Services
 
         public static async Task ChangeEmailVerification(EmailVerification emailVerification, DateTime now)
         {
-            var htmlContent = GetHTMLContent("HTML/VerificationNewEmail.html");
-            string verificationLink = $"http://localhost:5042/api/User/trocar-email?token={emailVerification.VerificationToken}";
+            var htmlContent = await GetHTMLContent("VerificationNewEmail");
+            string verificationLink = $"https://cscrudapi.onrender.com/api/User/trocar-email?token={emailVerification.VerificationToken}";
             string plainTextContent = $"Clique no link {verificationLink} para verificar o novo e-mail, caso não tenha sido você clique aqui para cancelar a requisição: FUTURO LINK" ;
             htmlContent = htmlContent.Replace("##LINK_VERIFICACAO##", verificationLink);
 
@@ -100,7 +98,7 @@ namespace CsCrudApi.Services
         //E-MAILs DE AVISO - IMPLEMENTAR CANCELAMENTO DE ALTERAÇÕES:
         public static async Task ChangePasswordAdvice (User user, DateTime now)
         {
-            var htmlContent = GetHTMLContent("HTML/ChangePasswordAdvice.html");
+            var htmlContent = await GetHTMLContent("ChangePasswordAdvice");
 
             htmlContent = htmlContent.Replace("##NOME##", user.NmSocial);
             htmlContent = htmlContent.Replace("##DIA_ALTERACAO##", $"{now.Day}/{now.Month}/{now.Year}");
@@ -121,7 +119,7 @@ namespace CsCrudApi.Services
 
         public static async Task ChangeEmailAdvice (User user, DateTime now, string newEMail)
         {
-            var htmlContent = GetHTMLContent("HTML/ChangeEmailAdvice.html");
+            var htmlContent = await GetHTMLContent("ChangeEmailAdvice");
             string plainTextContent = $"Olá {user.NmSocial}, houve uma alteração no seu e-mail no dia {now.Day} às {now.TimeOfDay}, caso não tenha sido você clique nesse link: FUTURO LINK";
 
             htmlContent = htmlContent.Replace("##NOME##", user.NmSocial);
@@ -141,14 +139,23 @@ namespace CsCrudApi.Services
         }
 
 
-        private static string GetHTMLContent(string path)
+        private static async Task<string> GetHTMLContent(string templateName)
         {
-            string htmlContent = "";
-            using (var arquivoHTML = File.OpenText(path))
+            // Define a raiz do projeto
+            var rootPath = AppContext.BaseDirectory;
+
+            // Combina a raiz do projeto com o caminho do HTML
+            var filePath = Path.Combine(rootPath, "HTML", $"{templateName}.html");
+
+            // Lê o conteúdo do arquivo HTML
+            if (File.Exists(filePath))
             {
-                htmlContent = arquivoHTML.ReadToEnd();
+                return await File.ReadAllTextAsync(filePath);
             }
-            return htmlContent;
+            else
+            {
+                throw new FileNotFoundException($"Template '{templateName}' não encontrado em '{filePath}'.");
+            }
         }
     }
 }
