@@ -41,10 +41,9 @@ namespace CsCrudApi.Models.UserRelated
         [Column("desc_titulo")]
         public ETitulo DescTitulo { get; set; }
 
-        [Required]
         [MaxLength(150)]
         [Column("nome_social")]
-        public string NmSocial { get; set; }
+        public string? NmSocial { get; set; }
 
         [Required]
         [Column("tipo_cor")]
