@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CsCrudApi.Models.UserRelated.Request
 {
-    [Table("EmailVerification")]
+    [Table("emailverification")]
     public class EmailVerification
     {
         [Required]
