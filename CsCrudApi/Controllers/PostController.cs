@@ -1,5 +1,6 @@
 ﻿using CsCrudApi.Models;
 using CsCrudApi.Models.PostRelated;
+using CsCrudApi.Models.PostRelated.Request;
 using CsCrudApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -145,6 +146,110 @@ namespace CsCrudApi.Controllers
                 // Lança exceções se a segunda tentativa também falhar
                 return StatusCode(500, new { error = "Erro ao criar o post na segunda tentativa", details = ex.Message });
             }
+        }
+
+        [HttpGet("mostrar-post")]
+        public async Task<ActionResult<dynamic>> ShowPost([FromQuery] string guid)
+        {
+            if (guid == null)
+            {
+                return BadRequest(new { message = "Post não informado." });
+            }
+            if (guid.Length != 32)
+            {
+                return BadRequest(new { message = "Guid inválido."});
+            }
+
+            var post = await _context.Posts.FirstOrDefaultAsync(p => p.Guid == guid);
+            if (post == null)
+            {
+                return NotFound(new { message = "Post não encontrado" });
+            }
+
+            var authorship = await _context.PostAuthors.FirstOrDefaultAsync(a => a.GuidPost == guid);
+            if (authorship == null)
+            {
+                return NotFound(new { message = "Autor não encontrado." });
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.IdUser == authorship.CdUser);
+            if (user == null)
+            {
+                return NotFound(new { message = "Usuário não encontrado." });
+            }
+
+            return Ok( new
+            {
+                // post = guid, type, textPost, flDownload, qtLikes
+                post,
+                // ftPerfil = user.ftPerfil
+                nmAutor = user.NmSocial,
+                // grauEscolaridade = user.Escolaridade,
+                tpInteresse = user.TpPreferencia,
+                // dcCategorias = user.Categorias
+                dcTitulo = user.DescTitulo,
+                //qtComentarios (add ao post).
+            });
+        }
+
+        [HttpPost("Mais-posts")]
+        public async Task<ActionResult<dynamic>> PostList([FromBody] PostRequest request)
+        {
+            List<Post> posts = new();
+
+            List<string> listaPosts = request.PostGUIDs;
+
+            if (request.IdUser == null || request.IdUser == 0)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    var post = await _context.Posts
+                        .Where(p => !listaPosts.Contains(p.Guid))
+                        .OrderByDescending(p => p.PostDate)
+                        .FirstOrDefaultAsync();
+
+                    if (post == null)
+                    {
+                        break;
+                    }
+
+                    posts.Add(post);
+                }
+
+                foreach (var post in posts)
+                {
+                    listaPosts.Add(post.Guid);
+                }
+                return new
+                {
+                    posts,
+                    listaPosts
+                };
+            }
+
+            for (int i = 0; i < 10; i++)
+            {
+                var post = await _context.Posts.Where(p => !posts.Select(x => x.Guid).Contains(p.Guid))
+                    .Where(p => !listaPosts.Contains(p.Guid))
+                    .OrderByDescending(p => p.PostDate)
+                    .FirstOrDefaultAsync();
+
+                if (post == null)
+                {
+                    break;
+                }
+                posts.Add(post);
+            }
+            foreach (var post in posts)
+            {
+                listaPosts.Add(post.Guid);
+            }
+
+            return new
+            {
+                posts,
+                listaPosts
+            };
         }
 
         /*

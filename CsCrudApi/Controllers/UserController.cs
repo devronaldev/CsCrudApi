@@ -9,6 +9,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.UserRelated.Request;
+using CsCrudApi.Models.PostRelated.Request;
 
 namespace CsCrudApi.Controllers
 {
@@ -276,11 +277,5 @@ namespace CsCrudApi.Controllers
         protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);
 
         protected async Task<int> GetFollowing(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollower == idUser);
-
-        //CRIAR ENDPOINT
-        protected async Task<List<string>> UpdatePosts(List<string> postUsed)
-        {
-            return postUsed;
-        }
     }
 }

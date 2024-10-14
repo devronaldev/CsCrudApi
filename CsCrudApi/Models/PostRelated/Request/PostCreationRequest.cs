@@ -1,4 +1,4 @@
-﻿namespace CsCrudApi.Models.PostRelated
+﻿namespace CsCrudApi.Models.PostRelated.Request
 {
     public class PostCreationRequest
     {

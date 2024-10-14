@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CsCrudApi.Models.PostRelated
 {
-    [Table("Post")]
+    [Table("post")]
     public class Post
     {
         [Key]
@@ -28,6 +28,14 @@ namespace CsCrudApi.Models.PostRelated
 
         [Column("tipo_post")]
         [Required]
-        public int Type { get; set; }
+        public ETypePost Type { get; set; }
+    }
+
+    public enum ETypePost
+    {
+        flash = 0,
+        big = 1,
+        question = 2,
+        full = 3
     }
 }
