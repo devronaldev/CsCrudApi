@@ -38,16 +38,11 @@ namespace CsCrudApi.Services
         }
         public static byte[] GetKey()
         {
-            if (_configuration == null)
-            {
-                throw new InvalidOperationException("A configuração não foi inicializada.");
-            }
-
-            var secret = _configuration["Secret"];
+            var secret = Environment.GetEnvironmentVariable("SECRET");
 
             if (string.IsNullOrEmpty(secret))
             {
-                throw new InvalidOperationException("Chave secreta não configurada no appsettings.json.");
+                throw new InvalidOperationException("Chave secreta não configurada no Ambiente");
             }
 
             return Encoding.ASCII.GetBytes(secret);

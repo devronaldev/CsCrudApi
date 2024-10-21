@@ -16,7 +16,7 @@ namespace CsCrudApi.Services
                 .AddJsonFile("appsettings.json")
                 .Build();
             _configuration = configurationBuilder;
-            _apiKey = _configuration["SendGridKey"];
+            _apiKey = Environment.GetEnvironmentVariable("SEND_GRID_KEY");
         }
 
         //Email Sender

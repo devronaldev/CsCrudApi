@@ -3,16 +3,15 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using DotNetEnv;
 
+
+Env.Load();
 var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-var key = Encoding.ASCII.GetBytes(builder.Configuration["Secret"]);
+var key = Encoding.ASCII.GetBytes(Environment.GetEnvironmentVariable("SECRET"));
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -30,8 +29,8 @@ builder.Services.AddAuthentication(options =>
             ValidateAudience = false
         };
     });
-
-builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"), new MySqlServerVersion(new Version(8,0,31))));
+var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseMySql(connectionString, new MySqlServerVersion(new Version(8,0,31))));
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
