@@ -180,15 +180,14 @@ namespace CsCrudApi.Controllers
 
             return Ok( new
             {
-                // post = guid, type, textPost, flDownload, qtLikes
+                // post = guid, type, textPost, flDownload, qtLikes, qtComentarios (add ao post).
                 post,
                 // ftPerfil = user.ftPerfil
                 nmAutor = user.NmSocial,
                 // grauEscolaridade = user.Escolaridade,
                 tpInteresse = user.TpPreferencia,
                 // dcCategorias = user.Categorias
-                dcTitulo = user.DescTitulo,
-                //qtComentarios (add ao post).
+                //dcTitulo = post.dcTitulo,
             });
         }
 

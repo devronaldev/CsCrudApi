@@ -84,4 +84,9 @@ namespace CsCrudApi.Models.UserRelated
         White = 1,
         Color = 2
     }
+
+    public enum EGrauEscolaridade
+    {
+
+    }
 }

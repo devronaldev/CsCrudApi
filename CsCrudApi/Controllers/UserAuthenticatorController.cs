@@ -8,6 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using CsCrudApi.Services;
 using CsCrudApi.Models.UserRelated.Request;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 
 namespace CsCrudApi.Controllers
 {
@@ -22,30 +23,65 @@ namespace CsCrudApi.Controllers
         [AllowAnonymous]
         public async Task<ActionResult<dynamic>> Login([FromBody] LoginDTO model)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new
+                {
+                    ModelState,
+                    message = "Modelagem inválida. Requisição inválida."
+                });
+            }
+            if (string.IsNullOrEmpty(model.Email))
+            {
+                return BadRequest(new
+                {
+                    message = "E-mail vazio ou nulo."
+                });
+            }
+            if (string.IsNullOrEmpty(model.Password))
+            {
+                return Unauthorized(new
+                {
+                    message = "Senha vazia ou nula."
+                });
+            }
+            if (model.Email.Length < 17)
+            {
+                return BadRequest(new
+                {
+                    message = "E-mail deve conter pelo menos 17 caracteres."
+                });
+            }
+            var regex = new Regex(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?"":{}|<>])(?=.*[^a-zA-Z\d]).{8,}$");
+            if (!regex.IsMatch(model.Password))
+            {
+                return Unauthorized(new
+                {
+                    message = "A senha não contém os padrões básicos de segurança."
+                });
+            }
+
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Email == model.Email);
-
-
             if (user == null) 
             {
                 return NotFound(new
                 {
-                    message = "Usuário ou senha inexistente"
+                    message = "Usuário ou senha inexistente."
                 });
             }
-
-            //ADICIONAR DEPOIS DE RESOLVER EMAIL SHOOTER
             if (user.IsEmailVerified == false)
             {
-                return BadRequest(new { message = "E-mail não verificado." });
+                return BadRequest(new 
+                { 
+                    message = "E-mail não verificado." 
+                });
             }
-
             if (!BCrypt.Net.BCrypt.Verify(model.Password, user.Password)) 
             {
                 return Unauthorized(new
                 {
-                    //Mais seguro se eu não informar que o problema é na senha
-                    message = "Usuário ou senha inexistente"
+                    message = "Usuário ou senha inexistente."
                 });
             }
             var token = Services.TokenServices.GenerateToken(user);
@@ -117,7 +153,7 @@ namespace CsCrudApi.Controllers
             catch (Exception ex)
             {
                 //SE HOUVER ERRO SÓ DEUS SABE.
-                return StatusCode(500, new { message = "Erro ao registrar usuário", error = ex.Message });
+                return StatusCode(500, new { message = "Erro ao registrar usuário.", error = ex.Message });
             }
         }
 
