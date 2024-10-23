@@ -8,14 +8,6 @@ namespace CsCrudApi.Services
 {
     public static class TokenServices
     {
-        private static IConfiguration _configuration;
-        static TokenServices()
-        {
-            var configurationBuilder = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json")
-                .Build();
-            _configuration = configurationBuilder;
-        }
 
         public static string GenerateToken(User user)
         {
@@ -23,12 +15,12 @@ namespace CsCrudApi.Services
             var key = GetKey();
             var tokenDescriptor = new SecurityTokenDescriptor
             {
-                Subject = new ClaimsIdentity(new Claim[]
-                {
+                Subject = new ClaimsIdentity(
+                [
                     new Claim(ClaimTypes.Name, user.Name),
                     new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Role, user.TpPreferencia.ToString())
-                }),
+                    new Claim(ClaimTypes.Role, user.TipoInteresse.ToString())
+                ]),
                 Expires = DateTime.UtcNow.AddHours(2),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             }; 

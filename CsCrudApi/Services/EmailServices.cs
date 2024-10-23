@@ -3,20 +3,19 @@ using System.Net;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using CsCrudApi.Models.UserRelated.Request;
+using DotNetEnv;
 
 namespace CsCrudApi.Services
 {
     public class EmailServices
     {
         private readonly string? _apiKey;
-        private static IConfiguration? _configuration;
+        private readonly string? _rootRoute;
+        
         public EmailServices()
         {
-            var configurationBuilder = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json")
-                .Build();
-            _configuration = configurationBuilder;
             _apiKey = Environment.GetEnvironmentVariable("SEND_GRID_KEY");
+            _rootRoute = Environment.GetEnvironmentVariable("ROOT_ROUTE");
         }
 
         //Email Sender
@@ -45,10 +44,11 @@ namespace CsCrudApi.Services
         public static async Task SendVerificationEmail(User user)
         {
             var token = TokenServices.GenerateToken(user); // Gerando o token para o usuário
-
+            string rootRoute = EmailServices.GetRootRoute();
+            
             //TROCAR URL POR VARIÁVEL DE AMBIENTE
-            var verificationLink = $"https://cscrudapi.onrender.com/api/UserAuth/verificar-email?token={token}";            
-            var cancelationLink = $"https://cscrudapi.onrender.com/api/UserAuth/cancelar-cadastro?email={user.Email}";
+            var verificationLink = string.Format($"{rootRoute}api/UserAuth/verificar-email?token={token}");
+            var cancelationLink = $"{rootRoute}api/UserAuth/cancelar-cadastro?email={user.Email}";
             var plainTextContent = $"Por favor, clique no link para verificar seu e-mail: {verificationLink}. Caso você não tenha solicitado cadastro, clique nesse link para cancelar inscrição: {cancelationLink}";
             string htmlContent = await GetHTMLContent("VerificationEmail");
             
@@ -68,10 +68,11 @@ namespace CsCrudApi.Services
             }
         }
 
-        public static async Task ChangeEmailVerification(EmailVerification emailVerification, DateTime now)
+        public static async Task ChangeEmailVerification(EmailVerification emailVerification)
         {
+            string rootRoute = EmailServices.GetRootRoute();
             var htmlContent = await GetHTMLContent("VerificationNewEmail");
-            string verificationLink = $"https://cscrudapi.onrender.com/api/User/trocar-email?token={emailVerification.VerificationToken}";
+            string verificationLink = $"{rootRoute}api/User/trocar-email?token={emailVerification.VerificationToken}";
             string plainTextContent = $"Clique no link {verificationLink} para verificar o novo e-mail, caso não tenha sido você clique aqui para cancelar a requisição: FUTURO LINK" ;
             htmlContent = htmlContent.Replace("##LINK_VERIFICACAO##", verificationLink);
 
@@ -156,6 +157,13 @@ namespace CsCrudApi.Services
             {
                 throw new FileNotFoundException($"Template '{templateName}' não encontrado em '{filePath}'.");
             }
+        }
+
+        public static string GetRootRoute()
+        {
+            EmailServices services = new();
+            return services._rootRoute;
+            //ISSO PODE DAR MUITO ERRADO; CONSERTAR;
         }
     }
 }

@@ -29,6 +29,9 @@ namespace CsCrudApi.Models.PostRelated
         [Column("tipo_post")]
         [Required]
         public ETypePost Type { get; set; }
+
+        [Column("descricao_titulo")]
+        public string? DcTitulo { get; set; }
     }
 
     public enum ETypePost

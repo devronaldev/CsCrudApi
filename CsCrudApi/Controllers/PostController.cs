@@ -1,6 +1,7 @@
 ﻿using CsCrudApi.Models;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.PostRelated.Request;
+using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -25,7 +26,7 @@ namespace CsCrudApi.Controllers
         public async Task<ActionResult<dynamic>> CreatePost([FromBody] PostCreationRequest model, [FromHeader] string token)
         {
             var post = model.Post;
-            var authorIds = model.PostAuthorsIds;
+            //var authorIds = model.PostAuthorsIds;
 
             if (token == null)
             {
@@ -37,10 +38,18 @@ namespace CsCrudApi.Controllers
                 return BadRequest("Solicitação sem post.");
             }
 
-            if (authorIds == null || authorIds.Count <= 0)
+            if (post.Type == ETypePost.flash && string.IsNullOrEmpty(post.DcTitulo))
+            {
+                return BadRequest(new
+                {
+                    message = "Qualquer post que não seja do tipo rápido precisa de título."
+                });
+            }
+
+            /*if (authorIds == null || authorIds.Count <= 0)
             {
                 return BadRequest("Sem autores.");
-            }
+            }*/
 
             post.QuantityLikes = 0;
             post.PostDate = DateTime.UtcNow;
@@ -55,7 +64,7 @@ namespace CsCrudApi.Controllers
                     return BadRequest("Erro: Token inválido ou não pode ser validado.");
                 }
 
-                var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
+                var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
                 if (string.IsNullOrEmpty(emailClaim))
                 {
                     return BadRequest("Erro: Token inválido, claim de e-mail ausente.");
@@ -67,17 +76,17 @@ namespace CsCrudApi.Controllers
                     return NotFound("Usuário publicador não encontrado");
                 }
 
-                if (!authorIds.Contains(creatorUser.IdUser))
+                /*if (!authorIds.Contains(creatorUser.IdUser))
                 {
                     return NotFound("Usuário publicador não pertence à lista de autores");
-                }
+                }*/
 
                 // Adiciona o post
                 _context.Posts.Add(post);
                 await _context.SaveChangesAsync(); // Salva o post primeiro para garantir que tenha um ID
 
                 // Verifica se os autores já existem e adiciona os novos
-                foreach (var authorId in authorIds.Distinct()) // Use Distinct para evitar duplicatas
+                /*foreach (var authorId in authorIds.Distinct()) // Use Distinct para evitar duplicatas
                 {
                     var authorExists = await _context.Users.AnyAsync(u => u.IdUser == authorId);
                     if (!authorExists)
@@ -90,7 +99,10 @@ namespace CsCrudApi.Controllers
                     {
                         _context.PostAuthors.Add(new PostAuthors { CdUser = authorId, GuidPost = post.Guid });
                     }
-                }
+                }*/
+
+                //CASO SEJA APENAS UM AUTOR, ALTERAR TABELA POST E ADICIONAR CHAVE ESTRANGEIRA LÁ
+                _context.PostAuthors.Add(new PostAuthors { CdUser = creatorUser.IdUser, GuidPost = post.Guid });
 
                 // Salva as mudanças na tabela PostAuthors
                 await _context.SaveChangesAsync();
@@ -101,7 +113,7 @@ namespace CsCrudApi.Controllers
             {
                 if (ex.InnerException is SqlException sqlEx && sqlEx.Number == 2601) // Código de erro de violação de unicidade
                 {
-                    return await RetryCreatePost(post, authorIds);
+                    return await RetryCreatePost(post, token);
                 }
                 else
                 {
@@ -113,8 +125,31 @@ namespace CsCrudApi.Controllers
 
 
 
-        private async Task<ActionResult<dynamic>> RetryCreatePost(Post post, List<int> authorIds)
+        private async Task<ActionResult<dynamic>> RetryCreatePost(Post post, string token)
         {
+            var claimsPrincipal = TokenServices.ValidateJwtToken(token);
+            if (claimsPrincipal == null) {
+                return BadRequest(new
+                {
+                    message = "Token danificado."
+                });
+            }
+            var emailUser = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
+            if (emailUser == null)
+            {
+                return BadRequest(new
+                {
+                    message = "token danificado."
+                });
+            }
+            var postCreator = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailUser);
+            if (postCreator == null)
+            {
+                return NotFound(new
+                {
+                    message = "Usuário não encontrado."
+                });
+            }
             try
             {
                 // Gera um novo GUID para o post
@@ -125,7 +160,7 @@ namespace CsCrudApi.Controllers
                 await _context.SaveChangesAsync();
 
                 // Associa os autores ao novo post
-                foreach (var authorId in authorIds)
+                /*foreach (var authorId in authorIds)
                 {
                     var postAuthor = new PostAuthors
                     {
@@ -134,7 +169,8 @@ namespace CsCrudApi.Controllers
                     };
 
                     _context.PostAuthors.Add(postAuthor);
-                }
+                }*/
+                _context.PostAuthors.Add(new PostAuthors { GuidPost = post.Guid, CdUser = postCreator.IdUser });
 
                 // Salva os autores
                 await _context.SaveChangesAsync();
@@ -180,16 +216,66 @@ namespace CsCrudApi.Controllers
 
             return Ok( new
             {
-                // post = guid, type, textPost, flDownload, qtLikes, qtComentarios (add ao post).
+                // post = guid, type, textPost, dcTitulo, (flDownload, qtLikes, qtComentarios) = add ao post.
                 post,
                 // ftPerfil = user.ftPerfil
                 nmAutor = user.NmSocial,
-                // grauEscolaridade = user.Escolaridade,
-                tpInteresse = user.TpPreferencia,
+                grauEscolaridade = user.GrauEscolaridade,
+                tipoInteresse = user.TipoInteresse,
                 // dcCategorias = user.Categorias
-                //dcTitulo = post.dcTitulo,
             });
         }
+
+        [HttpPost("post={guid}")]
+        public async Task<ActionResult<dynamic>> GetPostDetails([FromRoute] string guid)
+        {
+            if (string.IsNullOrEmpty(guid))
+            {
+                return BadRequest(new
+                {
+                    message = "Guid nulo ou vazio."
+                });
+            }
+
+            var post = await _context.Posts.FirstOrDefaultAsync(p => p.Guid == guid);
+            if (post == null)
+            {
+                return NotFound(new
+                {
+                    message = "Post não encontrado."
+                });
+            }
+
+            var authorShip = await _context.PostAuthors.FirstOrDefaultAsync(a => a.GuidPost == guid);
+            if (authorShip == null)
+            {
+                return NotFound(new
+                {
+                    message = "Autor não encontrado."
+                });
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.IdUser == authorShip.CdUser);
+            if (user == null)
+            {
+                return NotFound(new
+                {
+                    message = "Autor não encontrado."
+                });
+            }
+
+            return Ok(new
+            {
+                // post = guid, type, textPost, dcTitulo, (flDownload, qtLikes, qtComentarios) = add ao post.
+                post,
+                // ftPerfil = user.ftPerfil
+                nmAutor = user.NmSocial,
+                grauEscolaridade = user.GrauEscolaridade,
+                tipoInteresse = user.TipoInteresse,
+                // dcCategorias = user.Categorias
+            });
+        }
+
 
         [HttpPost("Mais-posts")]
         public async Task<ActionResult<dynamic>> PostList([FromBody] PostRequest request)
