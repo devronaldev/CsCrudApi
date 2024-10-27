@@ -4,6 +4,7 @@ using CsCrudApi.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CsCrudApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241027184829_NoPostAuthors")]
+    partial class NoPostAuthors
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -62,71 +65,7 @@ namespace CsCrudApi.Migrations
                     b.ToTable("post");
                 });
 
-            modelBuilder.Entity("CsCrudApi.Models.PostRelated.PostArea", b =>
-                {
-                    b.Property<int>("AreaId")
-                        .HasColumnType("int")
-                        .HasColumnName("id_area");
-
-                    b.Property<string>("GuidPost")
-                        .HasMaxLength(32)
-                        .HasColumnType("varchar(32)")
-                        .HasColumnName("guid_post");
-
-                    b.HasKey("AreaId", "GuidPost");
-
-                    b.HasIndex("GuidPost");
-
-                    b.ToTable("area_post");
-                });
-
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.Cidade", b =>
-                {
-                    b.Property<int>("IdCidade")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id_cidade");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdCidade"));
-
-                    b.Property<int>("CodIBGE")
-                        .HasColumnType("int")
-                        .HasColumnName("cod_ibge");
-
-                    b.Property<int>("Estado")
-                        .HasColumnType("int")
-                        .HasColumnName("estado");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("longtext")
-                        .HasColumnName("nome");
-
-                    b.HasKey("IdCidade");
-
-                    b.ToTable("cidade");
-                });
-
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.CollegeRelated.Area", b =>
-                {
-                    b.Property<int>("AreaId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id_area");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("AreaId"));
-
-                    b.Property<string>("AreaName")
-                        .IsRequired()
-                        .HasColumnType("longtext")
-                        .HasColumnName("desc_area");
-
-                    b.HasKey("AreaId");
-
-                    b.ToTable("area");
-                });
-
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.CollegeRelated.Campus", b =>
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.Campus", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -164,34 +103,31 @@ namespace CsCrudApi.Migrations
                     b.ToTable("campus");
                 });
 
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.CollegeRelated.CampusOffer", b =>
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.Cidade", b =>
                 {
-                    b.Property<int>("IdCampus")
-                        .HasColumnType("int");
-
-                    b.Property<int>("IdCourse")
-                        .HasColumnType("int");
-
-                    b.HasKey("IdCampus", "IdCourse");
-
-                    b.ToTable("campus_oferece");
-                });
-
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.CollegeRelated.UserFollowingUser", b =>
-                {
-                    b.Property<int>("CdFollower")
+                    b.Property<int>("IdCidade")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasColumnName("cd_usuario_seguidor");
+                        .HasColumnName("id_cidade");
 
-                    b.Property<int>("CdFollowed")
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdCidade"));
+
+                    b.Property<int>("CodIBGE")
                         .HasColumnType("int")
-                        .HasColumnName("cd_usuario_seguido");
+                        .HasColumnName("cod_ibge");
 
-                    b.HasKey("CdFollower", "CdFollowed");
+                    b.Property<int>("Estado")
+                        .HasColumnType("int")
+                        .HasColumnName("estado");
 
-                    b.HasIndex("CdFollowed");
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext")
+                        .HasColumnName("nome");
 
-                    b.ToTable("usuario_seguindo_usuario");
+                    b.HasKey("IdCidade");
+
+                    b.ToTable("cidade");
                 });
 
             modelBuilder.Entity("CsCrudApi.Models.UserRelated.Request.EmailVerification", b =>
@@ -285,10 +221,6 @@ namespace CsCrudApi.Migrations
                         .HasColumnType("varchar(128)")
                         .HasColumnName("senha");
 
-                    b.Property<int>("StatusCourse")
-                        .HasColumnType("int")
-                        .HasColumnName("status_curso");
-
                     b.Property<int>("TipoInteresse")
                         .HasColumnType("int")
                         .HasColumnName("tipo_interesse");
@@ -302,6 +234,23 @@ namespace CsCrudApi.Migrations
                     b.ToTable("usuario");
                 });
 
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.UserFollowingUser", b =>
+                {
+                    b.Property<int>("CdFollower")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_usuario_seguidor");
+
+                    b.Property<int>("CdFollowed")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_usuario_seguido");
+
+                    b.HasKey("CdFollower", "CdFollowed");
+
+                    b.HasIndex("CdFollowed");
+
+                    b.ToTable("usuario_seguindo_usuario");
+                });
+
             modelBuilder.Entity("CsCrudApi.Models.PostRelated.Post", b =>
                 {
                     b.HasOne("CsCrudApi.Models.UserRelated.User", null)
@@ -311,22 +260,7 @@ namespace CsCrudApi.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CsCrudApi.Models.PostRelated.PostArea", b =>
-                {
-                    b.HasOne("CsCrudApi.Models.UserRelated.CollegeRelated.Area", null)
-                        .WithMany()
-                        .HasForeignKey("AreaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("CsCrudApi.Models.PostRelated.Post", null)
-                        .WithMany()
-                        .HasForeignKey("GuidPost")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.CollegeRelated.UserFollowingUser", b =>
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.UserFollowingUser", b =>
                 {
                     b.HasOne("CsCrudApi.Models.UserRelated.User", null)
                         .WithMany()

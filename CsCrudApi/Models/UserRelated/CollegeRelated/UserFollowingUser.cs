@@ -1,17 +1,18 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CsCrudApi.Models.UserRelated
+namespace CsCrudApi.Models.UserRelated.CollegeRelated
 {
     [Table("usuario_seguindo_usuario")]
     public class UserFollowingUser
     {
-        [Key] 
+        [Key]
         [Required]
         [Column("cd_usuario_seguidor")]
         public int CdFollower { get; set; }
 
-        [Key] [Required]
+        [Key]
+        [Required]
         [Column("cd_usuario_seguido")]
         public int CdFollowed { get; set; }
     }

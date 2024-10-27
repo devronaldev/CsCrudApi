@@ -57,6 +57,10 @@ namespace CsCrudApi.Models.UserRelated
         [Required]
         [Column("is_email_verified")]
         public bool IsEmailVerified {  get; set; }
+
+        [Required]
+        [Column("status_curso")]
+        public EUserStudyStatus StatusCourse { get; set; }
     }
 
     // Enum for TpPreferencia
@@ -86,5 +90,12 @@ namespace CsCrudApi.Models.UserRelated
         Dark = 1,
         White = 2,
         Color = 3
+    }
+
+    public enum EUserStudyStatus
+    {
+        Active = 0,
+        Inactive = 1,
+        Concluded = 2
     }
 }

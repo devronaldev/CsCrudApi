@@ -1,15 +1,12 @@
-﻿using BCrypt.Net;
-using CsCrudApi.Models;
+﻿using CsCrudApi.Models;
 using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.UserRelated.Request;
-using CsCrudApi.Models.PostRelated.Request;
 
 namespace CsCrudApi.Controllers
 {

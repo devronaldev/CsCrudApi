@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CsCrudApi.Models.UserRelated
+namespace CsCrudApi.Models.UserRelated.CollegeRelated
 {
     [Table("curso")]
     public class Curso
