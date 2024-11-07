@@ -1,5 +1,6 @@
 ﻿using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.UserRelated;
+using CsCrudApi.Models.UserRelated.CollegeRelated;
 using CsCrudApi.Models.UserRelated.Request;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,7 +25,11 @@ namespace CsCrudApi.Models
 
         public DbSet<PostRelated.Post> Posts { get; set; }
 
-        public DbSet<PostRelated.PostAuthors> PostAuthors { get; set; }
+        public DbSet<PostArea> PostsArea { get; set; }
+
+        public DbSet<Area> Areas { get; set; }
+
+        public DbSet<CampusOffer> CampusOffers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -45,20 +50,28 @@ namespace CsCrudApi.Models
                 .HasForeignKey(uf => uf.CdFollowed)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<PostAuthors>()
-                .HasKey(pa => new { pa.CdUser, pa.GuidPost });
+            modelBuilder.Entity<Post>()
+                .HasOne<User>() 
+                .WithMany() 
+                .HasForeignKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<PostAuthors>()
+            modelBuilder.Entity<PostArea>()
+                .HasOne<Area>()
+                .WithMany()
+                .HasForeignKey(pa => pa.AreaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PostArea>()
                 .HasOne<Post>()
                 .WithMany()
-                .HasForeignKey(pa => pa.GuidPost)
-                .HasPrincipalKey(p => p.Guid);
+                .HasForeignKey(pa => pa.GuidPost);
 
-            modelBuilder.Entity<PostAuthors>()
-               .HasOne<User>()
-               .WithMany()
-               .HasForeignKey(pa => pa.CdUser)
-               .HasPrincipalKey(u => u.IdUser);
+            modelBuilder.Entity<PostArea>()
+                .HasKey(pa => new { pa.AreaId, pa.GuidPost });
+
+            modelBuilder.Entity<CampusOffer>()
+                .HasKey(c => new { c.IdCampus, c.IdCourse });
 
             base.OnModelCreating(modelBuilder);
         }

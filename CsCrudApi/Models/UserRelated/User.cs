@@ -31,15 +31,16 @@ namespace CsCrudApi.Models.UserRelated
 
         [Required]
         [Column("data_nascimento")]
+        [DataType(DataType.Date)]
         public DateTime DtNasc { get; set; }
 
         [Required]
-        [Column("tipo_preferencia")]
-        public EPreferencia TpPreferencia { get; set; }
+        [Column("tipo_interesse")]
+        public ETipoInteresse TipoInteresse { get; set; }
 
         [Required]
-        [Column("desc_titulo")]
-        public ETitulo DescTitulo { get; set; }
+        [Column("grau_escolaridade")]
+        public EGrauEscolaridade GrauEscolaridade { get; set; }
 
         [MaxLength(150)]
         [Column("nome_social")]
@@ -56,37 +57,45 @@ namespace CsCrudApi.Models.UserRelated
         [Required]
         [Column("is_email_verified")]
         public bool IsEmailVerified {  get; set; }
+
+        [Required]
+        [Column("status_curso")]
+        public EUserStudyStatus StatusCourse { get; set; }
     }
 
     // Enum for TpPreferencia
-    public enum EPreferencia
+    public enum ETipoInteresse
     {
-        Orientar = 1,
-        Produzir = 2
+        Orientador = 1,
+        Orientado = 2,
+        Pesquisa = 3,
+        IC = 4
     }
 
     // Enum for DescTitulo
-    public enum ETitulo
+    public enum EGrauEscolaridade
     {
-        Bacharel = 1,
-        Mestre = 2,
-        Doutor = 3,
-        Especialista = 4,
-        Tecnologo = 5,
-        Licenciado = 6,
-        Egresso = 7
+        EnsinoMedio = 1,
+        Graduacao = 2,
+        PosGraduacao = 3,
+        MBA = 4,
+        Mestrado = 5,
+        Doutorado = 6,
+        PosDoutorado = 7
     }
 
     // Enum for TpColor
     public enum EColor
     {
-        Dark = 0,
-        White = 1,
-        Color = 2
+        Dark = 1,
+        White = 2,
+        Color = 3
     }
 
-    public enum EGrauEscolaridade
+    public enum EUserStudyStatus
     {
-
+        Active = 0,
+        Inactive = 1,
+        Concluded = 2
     }
 }

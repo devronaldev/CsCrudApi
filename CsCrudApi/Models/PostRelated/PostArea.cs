@@ -1,19 +1,16 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-
 namespace CsCrudApi.Models.PostRelated
 {
-    [Table("post_autores")]
-    public class PostAuthors
+    [Table("area_post")]
+    public class PostArea
     {
         [Required]
-        [Key]
-        [Column("cd_usuario")]
-        public int CdUser { get; set; }
+        [Column("id_area")]
+        public int AreaId { get; set; }
 
         [Required]
-        [Key]
         [StringLength(32)]
         [Column("guid_post")]
         public string GuidPost { get; set; }

@@ -102,20 +102,51 @@ namespace CsCrudApi.Controllers
                 return BadRequest(new { message = "O modelo do usuário não pode ser nulo." });
             }
 
-            var verification = await IsEmailExistent(model.Email.ToLower().Trim());
+            model.Email = model.Email.Trim().ToLower();
+
+            var verification = await IsEmailExistent(model.Email);
             if (verification.Result is ConflictObjectResult)
             {
                 return Conflict(new { message = "O e-mail informado já está cadastrado." });
             }
+            if (string.IsNullOrEmpty(model.Email))
+            {
+                return BadRequest(new
+                {
+                    message = "E-mail vazio ou nulo."
+                });
+            }
+            if (model.Email.Length < 17)
+            {
+                return StatusCode(406, new
+                {
+                    message = "E-mail precisa ter mais de 17 caracteres",
+                });
+            }
+            if (string.IsNullOrEmpty(model.Password))
+            {
+                return Unauthorized(new
+                {
+                    message = "Senha vazia ou nula."
+                });
+            }
+            var regex = new Regex(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?"":{}|<>])(?=.*[^a-zA-Z\d]).{8,}$");
+            if (!regex.IsMatch(model.Password))
+            {
+                return Unauthorized(new
+                {
+                    message = "A senha não contém os padrões básicos de segurança."
+                });
+            }
 
             // Se incorreto define o valor do enum para o default
-            if (!Enum.IsDefined(typeof(EPreferencia), model.TpPreferencia))
+            if (!Enum.IsDefined(typeof(ETipoInteresse), model.TipoInteresse))
             {
-                model.TpPreferencia = EPreferencia.Produzir; 
+                model.TipoInteresse = ETipoInteresse.Orientado; 
             }
-            if (!Enum.IsDefined(typeof(ETitulo), model.DescTitulo))
+            if (!Enum.IsDefined(typeof(EGrauEscolaridade), model.GrauEscolaridade))
             {
-                model.DescTitulo = ETitulo.Egresso;
+                model.GrauEscolaridade = EGrauEscolaridade.Graduacao;
             }
             if (!Enum.IsDefined(typeof(EColor), model.TpColor))
             {
@@ -127,16 +158,15 @@ namespace CsCrudApi.Controllers
             {
                 model.NmSocial = model.Name;
             }
-
             var user = new User
             {
-                Email = model.Email.Trim().ToLower(),
+                Email = model.Email,
                 Password = hashedPassword,
                 CdCampus = model.CdCampus,
                 Name = model.Name.Trim(),
                 DtNasc = model.DtNasc,
-                TpPreferencia = model.TpPreferencia,
-                DescTitulo = model.DescTitulo,
+                TipoInteresse = model.TipoInteresse,
+                GrauEscolaridade = model.GrauEscolaridade,
                 NmSocial = model.NmSocial.Trim(),
                 TpColor = model.TpColor,
                 CdCidade = model.CdCidade,
@@ -166,8 +196,13 @@ namespace CsCrudApi.Controllers
             {
                 return BadRequest(new { message = "O e-mail não pode ser vazio." });
             }
-
-            
+            if (email.Length < 17)
+            {
+                return StatusCode(406, new
+                {
+                    message = "E-mail precisa ter mais de 17 caracteres",
+                });
+            }
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
             if (user != null)
             {
@@ -227,6 +262,7 @@ namespace CsCrudApi.Controllers
         [HttpGet("cancelar-cadastro")]
         public async Task<ActionResult<dynamic>> DeleteRegister(string email)
         {
+            email = email.ToLower().Trim();
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
 
             if (user == null)

@@ -1,15 +1,12 @@
-﻿using BCrypt.Net;
-using CsCrudApi.Models;
+﻿using CsCrudApi.Models;
 using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.UserRelated.Request;
-using CsCrudApi.Models.PostRelated.Request;
 
 namespace CsCrudApi.Controllers
 {
@@ -86,15 +83,14 @@ namespace CsCrudApi.Controllers
                 NmUsuario = user.NmSocial,
                 user.DtNasc,
                 user.Email,
-                user.TpPreferencia,
-                user.DescTitulo,
+                user.TipoInteresse,
+                user.GrauEscolaridade,
                 Seguidores = followers,
                 Seguindo = following,
                 Cidade = cidade,
                 IdCampus = campus.Id,
                 campus.SgCampus,
                 NmCampus = campus.CampusName,
-                CidadeCampus = cidadeCampus, // REMOVER CIDADE CAMPUS
                 GuidPosts = listaPosts,
                 Posts = posts
             };
@@ -175,9 +171,8 @@ namespace CsCrudApi.Controllers
 
         [HttpPost("atualizar-email")]
         public async Task<ActionResult<dynamic>> ChangeEmailRequest([FromHeader] string token, [FromBody] ChangeEmailRequest request)
-        {   
-            if (string.IsNullOrEmpty(token)) { NotFound($"Erro: Token '{token}' vazio"); }
-            
+        {
+            if (string.IsNullOrEmpty(token)) { NotFound(new { message = $"Erro: Token '{token}' vazio" }); }
             try
             {
                 // Validando o token
@@ -230,7 +225,7 @@ namespace CsCrudApi.Controllers
 
                 user = new User();
 
-                await EmailServices.ChangeEmailVerification(emailVerification, DateTime.Now);
+                await EmailServices.ChangeEmailVerification(emailVerification);
                 return Ok("Envio de e-mail de verificação realizado com sucesso.");
             }
             catch (Exception ex) 
