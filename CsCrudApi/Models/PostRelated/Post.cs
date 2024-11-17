@@ -8,8 +8,7 @@ namespace CsCrudApi.Models.PostRelated
     public class Post
     {
         [Key]
-        [Required]
-        [StringLength(32)]
+        [MaxLength(32)]
         [Column("guid")]
         public string Guid { get; set; }
 
@@ -18,7 +17,6 @@ namespace CsCrudApi.Models.PostRelated
         public DateTime PostDate {  get; set; }
 
         [Column("desc_post")]
-        [Required]
         [MaxLength(16000000)]
         public string TextPost { get; set; }
 

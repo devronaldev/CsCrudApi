@@ -4,6 +4,7 @@ using CsCrudApi.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CsCrudApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241107004129_CreateProdDB")]
+    partial class CreateProdDB
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -235,12 +238,12 @@ namespace CsCrudApi.Migrations
 
             modelBuilder.Entity("CsCrudApi.Models.UserRelated.User", b =>
                 {
-                    b.Property<int>("UserId")
+                    b.Property<int>("IdUser")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasColumnName("id_usuario");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("UserId"));
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdUser"));
 
                     b.Property<int>("CdCampus")
                         .HasColumnType("int")
@@ -297,7 +300,7 @@ namespace CsCrudApi.Migrations
                         .HasColumnType("int")
                         .HasColumnName("tipo_cor");
 
-                    b.HasKey("UserId");
+                    b.HasKey("IdUser");
 
                     b.ToTable("usuario");
                 });

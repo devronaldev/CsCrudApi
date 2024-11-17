@@ -287,13 +287,5 @@ namespace CsCrudApi.Controllers
                 return BadRequest($"Erro na exclusão de registro: {ex.Message}");
             }
         }
-
-        /*
-        [HttpPost("checkdeploy")]
-        public async Task<ActionResult<dynamic>> CheckDeploy([FromBody] LoginDTO user)
-        {
-            return new { user };
-        }
-        */
     }
 }

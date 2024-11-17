@@ -1,6 +1,7 @@
 ﻿using CsCrudApi.Models;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.PostRelated.Requests;
+using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -14,12 +15,7 @@ namespace CsCrudApi.Controllers
     public class PostController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly IConfiguration _configuration;
-        public PostController(ApplicationDbContext context, IConfiguration configuration)
-        {
-            _context = context;
-            _configuration = configuration;
-        }
+        public PostController(ApplicationDbContext context) => _context = context;
 
         [HttpPost("criar-post")]
         public async Task<ActionResult<dynamic>> CreatePost([FromBody] Post post, [FromHeader] string token)
@@ -55,7 +51,7 @@ namespace CsCrudApi.Controllers
                     return BadRequest("Erro: Token inválido ou não pode ser validado.");
                 }
 
-                var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+                var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
                 if (string.IsNullOrEmpty(emailClaim))
                 {
                     return BadRequest("Erro: Token inválido, claim de e-mail ausente.");
@@ -67,7 +63,7 @@ namespace CsCrudApi.Controllers
                     return NotFound("Usuário publicador não encontrado");
                 }
 
-                post.UserId = creatorUser.IdUser;
+                post.UserId = creatorUser.UserId;
 
                 _context.Posts.Add(post);
                 await _context.SaveChangesAsync(); // Salva o post primeiro para garantir que tenha um GUID disponível
@@ -76,7 +72,7 @@ namespace CsCrudApi.Controllers
             }
             catch (Exception ex)
             {
-                if (ex.InnerException is SqlException sqlEx && sqlEx.Number == 2601) 
+                if (ex.InnerException is SqlException sqlEx && sqlEx.Number == 2601)
                 {
                     return await RetryCreatePost(post, token);
                 }
@@ -91,7 +87,14 @@ namespace CsCrudApi.Controllers
 
         private async Task<ActionResult<dynamic>> RetryCreatePost(Post post, string token)
         {
-            var claimsPrincipal = TokenServices.ValidateJwtToken(token);
+            if (string.IsNullOrEmpty(token))
+            {
+                return BadRequest(new
+                {
+                    message = "Token vazio."
+                });
+            }
+                var claimsPrincipal = TokenServices.ValidateJwtToken(token);
             if (claimsPrincipal == null) {
                 return BadRequest(new
                 {
@@ -117,7 +120,7 @@ namespace CsCrudApi.Controllers
             try
             {
                 post.Guid = TokenServices.GenerateGUIDString();
-                post.UserId = userCreator.IdUser;
+                post.UserId = userCreator.UserId;
                 // Adiciona o novo post
                 _context.Posts.Add(post);
                 await _context.SaveChangesAsync();
@@ -139,7 +142,7 @@ namespace CsCrudApi.Controllers
             }
             if (guid.Length != 32)
             {
-                return BadRequest(new { message = "Guid inválido."});
+                return BadRequest(new { message = "Guid inválido." });
             }
 
             var post = await _context.Posts.FirstOrDefaultAsync(p => p.Guid == guid);
@@ -148,51 +151,10 @@ namespace CsCrudApi.Controllers
                 return NotFound(new { message = "Post não encontrado" });
             }
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.IdUser == post.UserId);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == post.UserId);
             if (user == null)
             {
                 return NotFound(new { message = "Usuário não encontrado." });
-            }
-
-            return Ok( new
-            {
-                // post = guid, type, textPost, dcTitulo, (flDownload, qtLikes, qtComentarios) = add ao post.
-                post,
-                // ftPerfil = user.ftPerfil
-                nmAutor = user.NmSocial,
-                grauEscolaridade = user.GrauEscolaridade,
-                tipoInteresse = user.TipoInteresse,
-                // dcCategorias = user.Categorias
-            });
-        }
-
-        [HttpPost("post={guid}")]
-        public async Task<ActionResult<dynamic>> GetPostDetails([FromRoute] string guid)
-        {
-            if (string.IsNullOrEmpty(guid))
-            {
-                return BadRequest(new
-                {
-                    message = "Guid nulo ou vazio."
-                });
-            }
-
-            var post = await _context.Posts.FirstOrDefaultAsync(p => p.Guid == guid);
-            if (post == null)
-            {
-                return NotFound(new
-                {
-                    message = "Post não encontrado."
-                });
-            }
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.IdUser == post.UserId);
-            if (user == null)
-            {
-                return NotFound(new
-                {
-                    message = "Autor não encontrado."
-                });
             }
 
             return Ok(new
@@ -207,94 +169,41 @@ namespace CsCrudApi.Controllers
             });
         }
 
-
-        [HttpPost("Mais-posts")]
-        public async Task<ActionResult<dynamic>> PostList([FromBody] PostRequest request)
+        [HttpPost("mais-posts")]
+        public async Task<ActionResult<dynamic>> PostList([FromBody] PostRequest request, [FromHeader] string token)
         {
-            List<Post> posts = new();
-
-            List<string> listaPosts = request.PostGUIDs;
-
-            if (request.UserId == null || request.UserId == 0)
+            if (string.IsNullOrEmpty(token))
             {
-                for (int i = 0; i < 5; i++)
+                return BadRequest(new
                 {
-                    var post = await _context.Posts
-                        .Where(p => !listaPosts.Contains(p.Guid))
-                        .OrderByDescending(p => p.PostDate)
-                        .FirstOrDefaultAsync();
-
-                    if (post == null)
-                    {
-                        break;
-                    }
-
-                    posts.Add(post);
-                }
-
-                foreach (var post in posts)
-                {
-                    listaPosts.Add(post.Guid);
-                }
-                return new
-                {
-                    posts,
-                    listaPosts
-                };
+                    message = "Token vazio."
+                });
             }
 
-            for (int i = 0; i < 10; i++)
-            {
-                var post = await _context.Posts.Where(p => !posts.Select(x => x.Guid).Contains(p.Guid))
-                    .Where(p => !listaPosts.Contains(p.Guid))
-                    .OrderByDescending(p => p.PostDate)
-                    .FirstOrDefaultAsync();
 
-                if (post == null)
-                {
-                    break;
-                }
-                posts.Add(post);
-            }
-            foreach (var post in posts)
-            {
-                listaPosts.Add(post.Guid);
-            }
+            var posts = await PaginatePosts(_context.Posts.AsQueryable(), request.PageNumber, request.PageSize);
 
-            return new
-            {
-                posts,
-                listaPosts
-            };
+            return posts;
         }
 
-        /*
-         * public async Task<ActionResult<dynamic>> PostList(List<string> listaPosts)
+        public static async Task<List<Post>> PaginatePosts(IQueryable<Post> query, int pageNumber, int pageSize, Func<IQueryable<Post>, IQueryable<Post>>? filter = null)
         {
-            List<Post> posts = new();
+            var items = await query.Skip((pageNumber - 1) * pageSize)
+                                   .Take(pageSize)
+                                   .ToListAsync();
 
-            for (int i = 0; i < 5; i++)
-            {
-                var post = await _context.Posts
-                    .Where(p => !listaPosts.Contains(p.Guid));
-                    //.OrderByDescending(p => p.PostDate)
-                    //.FirstOrDefaultAsync();
+            return items;
+        }
 
-                if (post == null)
-                {
-                    break;
-                }
-
-                posts.Add(post);
-            }
-
-            List<string> listaPosts = new List<string>();
-
-            foreach (var post in posts)
-            {
-                listaPosts.Add(post.Guid);
-            }
-            return new { };
-        } */
+        [HttpGet("{userId}")]
+        public async Task<List<Post>> GetUserPosts([FromRoute] int userId, [FromQuery] int pageNumber, int pageSize)
+        {
+            var posts = await PaginatePosts(_context.Posts.AsQueryable(), 
+                pageNumber, 
+                pageSize, 
+                p => p.Where(p => p.UserId == userId)
+                .OrderByDescending(p => p.PostDate));
+            return posts;
+        }
     } 
 }

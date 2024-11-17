@@ -8,7 +8,7 @@ namespace CsCrudApi.Models.UserRelated
     {
         [Key]
         [Column("id_usuario")]
-        public int IdUser { get; set; }
+        public int UserId { get; set; }
 
         [Required]
         [Column("cd_campus")]

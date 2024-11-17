@@ -16,10 +16,13 @@ namespace CsCrudApi.Controllers
     {
         private readonly ApplicationDbContext _context = context;
 
-        [HttpPost("perfil")]
-        public async Task<ActionResult<dynamic>> Profile([FromBody] int id)
+        [HttpGet("perfil/{userId}")]
+        public async Task<ActionResult<dynamic>> Profile([FromBody] int userId, int pageSize, int pageNumber)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.IdUser == id);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+
+            pageNumber = pageNumber < 1 ? 1 : pageNumber;
+            pageSize = pageSize < 1 ? 10 : pageSize;
 
             if (user == null)
             {
@@ -40,46 +43,16 @@ namespace CsCrudApi.Controllers
                 return NotFound("Campus não encontrado ou cadastrado incorretamente");
             }
 
-            var cidadeCampus = await _context.Cidades.FirstOrDefaultAsync(c => c.IdCidade == campus.CdCidade);
+            int followers = await GetFollowers(user.UserId);
 
-            if (cidadeCampus == null)
-            {
-                return NotFound("Campus com cidade não cadastrada ou cadastrado incorretamente.");
-            }
+            int following = await GetFollowing(user.UserId);
 
-            int followers = await GetFollowers(user.IdUser);
-
-            int following = await GetFollowing(user.IdUser);
-
-            List<Post> posts = new List<Post>();
-
-            for (int i = 0; i < 5; i++)
-            {
-                var post = await _context.Posts
-                    .Where(p => !posts.Select(x => x.Guid).Contains(p.Guid))
-                    .OrderByDescending(p => p.PostDate)
-                    .FirstOrDefaultAsync();
-
-                if (post == null)
-                {
-                    break;
-                }
-
-                posts.Add(post);
-            }
-
-            List<string> listaPosts = new List<string>();
-
-            foreach (var post in posts)
-            {
-                listaPosts.Add(post.Guid);
-            }
-
-
+            PostController postController = new PostController(_context);
+            var posts = await postController.GetUserPosts(user.UserId, pageNumber, pageSize);
 
             return new
             {
-                IdUsuario = user.IdUser,
+                IdUsuario = user.UserId,
                 NmUsuario = user.NmSocial,
                 user.DtNasc,
                 user.Email,
@@ -91,7 +64,6 @@ namespace CsCrudApi.Controllers
                 IdCampus = campus.Id,
                 campus.SgCampus,
                 NmCampus = campus.CampusName,
-                GuidPosts = listaPosts,
                 Posts = posts
             };
         }
@@ -101,23 +73,24 @@ namespace CsCrudApi.Controllers
         [HttpPost("atualizar-senha")]
         public async Task<ActionResult<dynamic>> ChangePassword([FromHeader] string token, [FromBody] ChangePasswordRequest request)
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = TokenServices.GetKey();
+            if (string.IsNullOrEmpty(token))
+            {
+                return BadRequest(new
+                {
+                    Message = "Erro: Token vazio."
+                });
+            }
+
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    Message = "Requisição vazia."
+                });
+            }
 
             try
             {
-                var claimsPrincipal = TokenServices.ValidateJwtToken(token);
-                if (claimsPrincipal == null)
-                {
-                    return BadRequest("Erro: Token inválido ou não pode ser validado.");
-                }
-
-                var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
-                if (string.IsNullOrEmpty(emailClaim))
-                {
-                    return BadRequest("Token inválido, claim de e-mail ausente.");
-                }
-
                 //Verificações de requisição
                 if (string.IsNullOrEmpty(request.OldPassword))
                 {
@@ -135,14 +108,22 @@ namespace CsCrudApi.Controllers
                 }
 
                 //Verificações de usuário
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
-
-                if (user == null)
+                var task = await GetTokenUser(claimsPrincipal: TokenServices.ValidateJwtToken(token));
+                if (task.Result is not null)
                 {
-                    return NotFound("Usuário não encontrado.");
+                    return task.Result;
                 }
 
-                if(!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.Password))
+                var user = task.Value;
+                if (user == null)
+                {
+                    return StatusCode(500, new
+                    {
+                        message = "Erro na identificação do usuário"
+                    });
+                }
+
+                if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.Password))
                 {
                     return Unauthorized("Senha incorreta.");
                 }
@@ -166,7 +147,7 @@ namespace CsCrudApi.Controllers
             catch (Exception ex)
             {
                 return BadRequest($"Erro na atualização: {ex.Message}");
-            }  
+            }
         }
 
         [HttpPost("atualizar-email")]
@@ -175,19 +156,6 @@ namespace CsCrudApi.Controllers
             if (string.IsNullOrEmpty(token)) { NotFound(new { message = $"Erro: Token '{token}' vazio" }); }
             try
             {
-                // Validando o token
-                var claimsPrincipal = TokenServices.ValidateJwtToken(token);
-                if (claimsPrincipal == null) 
-                {
-                    return BadRequest("Erro: Token inválido ou não pode ser validado.");
-                }
-
-                var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
-                if (string.IsNullOrEmpty(emailClaim))
-                {
-                    return BadRequest("Erro: Token inválido, claim de e-mail ausente.");
-                }
-
                 //Validar e-mails
                 if (string.IsNullOrEmpty(request.Email)) 
                 {
@@ -198,11 +166,21 @@ namespace CsCrudApi.Controllers
                     return BadRequest("Erro: E-mails diferentes.");
                 }
 
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
+                var task = await GetTokenUser(claimsPrincipal: TokenServices.ValidateJwtToken(token));
+                if (task.Result is not null)
+                {
+                    return task.Result;
+                }
+
+                var user = task.Value;
                 if (user == null)
                 {
-                    return NotFound("Erro: E-mail não cadastrado.");
+                    return StatusCode(500, new
+                    {
+                        message = "Erro na identificação do usuário"
+                    });
                 }
+
                 if (user.Email.Equals(request.Email))
                 {
                     //NÃO ACREDITO QUE VOU FAZER ISSO
@@ -213,7 +191,7 @@ namespace CsCrudApi.Controllers
 
                 var emailVerification = new EmailVerification
                 {
-                    UserId = user.IdUser,
+                    UserId = user.UserId,
                     NewEmail = request.Email,
                     VerificationToken = TokenServices.GenerateGUIDString(),
                     CreatedAt = DateTime.Now,
@@ -253,7 +231,7 @@ namespace CsCrudApi.Controllers
                 return Conflict("Erro: O e-mail já está conectado a outro usuário.");
             }
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.IdUser == emailVerification.UserId);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == emailVerification.UserId);
             if (user == null)
             {
                 return NotFound("Erro: Usuário não encontrado");
@@ -272,5 +250,30 @@ namespace CsCrudApi.Controllers
         protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);
 
         protected async Task<int> GetFollowing(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollower == idUser);
+
+        public async Task<ActionResult<dynamic>> GetTokenUser(ClaimsPrincipal claimsPrincipal)
+        {
+            if (claimsPrincipal == null)
+            {
+                return BadRequest("Erro: Token inválido ou não pode ser validado.");
+            }
+
+            var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
+            if (string.IsNullOrEmpty(emailClaim))
+            {
+                return BadRequest("Erro: Token inválido, claim de e-mail ausente.");
+            }
+
+            User? user = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
+            if (user == null)
+            {
+                return BadRequest(new
+                {
+                    message = "Erro: Token inválido, claim de e-mail ausente."
+                });
+            }
+            
+            return user;
+        }
     }
 }
