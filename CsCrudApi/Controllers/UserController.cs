@@ -7,6 +7,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.UserRelated.Request;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CsCrudApi.Controllers
 {
@@ -17,7 +18,8 @@ namespace CsCrudApi.Controllers
         private readonly ApplicationDbContext _context = context;
 
         [HttpGet("perfil/{userId}")]
-        public async Task<ActionResult<dynamic>> Profile([FromBody] int userId, int pageSize, int pageNumber)
+        [AllowAnonymous]
+        public async Task<ActionResult<dynamic>> Profile([FromRoute] int userId, [FromBody] int pageSize, int pageNumber)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
 
@@ -68,9 +70,9 @@ namespace CsCrudApi.Controllers
             };
         }
 
-        
-
-        [HttpPost("atualizar-senha")]
+        [Authorize]
+        [RequireHttps]
+        [HttpPatch("atualizar-senha")]
         public async Task<ActionResult<dynamic>> ChangePassword([FromHeader] string token, [FromBody] ChangePasswordRequest request)
         {
             if (string.IsNullOrEmpty(token))
@@ -150,7 +152,9 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        [HttpPost("atualizar-email")]
+        [Authorize]
+        [RequireHttps]
+        [HttpPatch("atualizar-email")]
         public async Task<ActionResult<dynamic>> ChangeEmailRequest([FromHeader] string token, [FromBody] ChangeEmailRequest request)
         {
             if (string.IsNullOrEmpty(token)) { NotFound(new { message = $"Erro: Token '{token}' vazio" }); }
@@ -212,8 +216,10 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        [HttpGet("trocar-email")]
-        public async Task<ActionResult<dynamic>> ChangeEmailVerification(string token)
+        [Authorize]
+        [RequireHttps]
+        [HttpPatch("trocar-email")]
+        public async Task<ActionResult<dynamic>> ChangeEmailVerification([FromQuery] string token)
         {
             var emailVerification = await _context.EmailVerifications.FirstOrDefaultAsync(e => e.VerificationToken == token);
             if (emailVerification == null)
@@ -251,6 +257,7 @@ namespace CsCrudApi.Controllers
 
         protected async Task<int> GetFollowing(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollower == idUser);
 
+        [NonAction]
         public async Task<ActionResult<dynamic>> GetTokenUser(ClaimsPrincipal claimsPrincipal)
         {
             if (claimsPrincipal == null)
@@ -272,7 +279,7 @@ namespace CsCrudApi.Controllers
                     message = "Erro: Token inválido, claim de e-mail ausente."
                 });
             }
-            
+
             return user;
         }
     }

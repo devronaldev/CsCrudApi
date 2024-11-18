@@ -258,7 +258,6 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        //ATUALIZAR PARA TOKEN
         [HttpGet("cancelar-cadastro")]
         public async Task<ActionResult<dynamic>> DeleteRegister(string email)
         {
@@ -267,13 +266,18 @@ namespace CsCrudApi.Controllers
 
             if (user == null)
             {
-                return NotFound("E-mail não encontrado");
+                return NotFound(new
+                {
+                    Message = "E-mail não encontrado"
+                });
             }
 
             if (user.IsEmailVerified)
             {
-                return BadRequest("E-mail já verificado. Impossível de excluir pré-cadastro. Caso tenha interesse, por favor, logar na página e ir até Configurações > Conta e Segurança e clicar no botão excluir perfil.");
-
+                return BadRequest(new
+                {
+                    Message = "E-mail já verificado. Impossível de excluir pré-cadastro. Caso tenha interesse, por favor, logar na página e ir até Configurações > Conta e Segurança e clicar no botão excluir perfil."
+                });
             }
 
             try

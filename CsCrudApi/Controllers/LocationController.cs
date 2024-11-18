@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using CsCrudApi.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CsCrudApi.Controllers
 {
@@ -15,10 +16,12 @@ namespace CsCrudApi.Controllers
             _configuration = configuration;
         }
 
-        [HttpPost("listar-cidades")]
+        [HttpGet("listar-cidades")]
+        [AllowAnonymous]
         public async Task<ActionResult<dynamic>> ListCities() => _context.Cidades.ToList();
 
-        [HttpPost("listar-campi")]
+        [AllowAnonymous]
+        [HttpGet("listar-campi")]
         public async Task<ActionResult<dynamic>> ListCampi() => _context.Campi.ToList();
     }
 }
