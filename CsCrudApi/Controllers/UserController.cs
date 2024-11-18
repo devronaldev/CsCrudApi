@@ -19,7 +19,7 @@ namespace CsCrudApi.Controllers
 
         [HttpGet("perfil/{userId}")]
         [AllowAnonymous]
-        public async Task<ActionResult<dynamic>> Profile([FromRoute] int userId, [FromBody] int pageSize, int pageNumber)
+        public async Task<ActionResult<dynamic>> Profile([FromRoute] int userId, [FromQuery] int pageSize, int pageNumber)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
 

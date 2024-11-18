@@ -3,6 +3,7 @@ using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.PostRelated.Requests;
 using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -30,7 +31,7 @@ namespace CsCrudApi.Controllers
                 return BadRequest("Solicitação sem post.");
             }
 
-            if (post.Type == ETypePost.flash && string.IsNullOrEmpty(post.DcTitulo))
+            if (post.Type != ETypePost.flash && string.IsNullOrEmpty(post.DcTitulo))
             {
                 return BadRequest(new
                 {
@@ -44,26 +45,24 @@ namespace CsCrudApi.Controllers
 
             try
             {
-                // Validação do Token
-                var claimsPrincipal = TokenServices.ValidateJwtToken(token);
-                if (claimsPrincipal == null)
+                UserController userController = new UserController(_context);
+                var task = await userController.GetTokenUser(claimsPrincipal: TokenServices.ValidateJwtToken(token));
+                if (task.Result is not null)
                 {
-                    return BadRequest("Erro: Token inválido ou não pode ser validado.");
+                    return task.Result;
                 }
 
-                var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
-                if (string.IsNullOrEmpty(emailClaim))
+                var user = task.Value;
+
+                if (user == null)
                 {
-                    return BadRequest("Erro: Token inválido, claim de e-mail ausente.");
+                    return StatusCode(500, new
+                    {
+                        message = "Erro na identificação do usuário"
+                    });
                 }
 
-                var creatorUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
-                if (creatorUser == null)
-                {
-                    return NotFound("Usuário publicador não encontrado");
-                }
-
-                post.UserId = creatorUser.UserId;
+                post.UserId = user.UserId;
 
                 _context.Posts.Add(post);
                 await _context.SaveChangesAsync(); // Salva o post primeiro para garantir que tenha um GUID disponível
@@ -94,33 +93,24 @@ namespace CsCrudApi.Controllers
                     message = "Token vazio."
                 });
             }
-                var claimsPrincipal = TokenServices.ValidateJwtToken(token);
-            if (claimsPrincipal == null) {
-                return BadRequest(new
-                {
-                    message = "Token danificado."
-                });
-            }
-            var emailUser = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
-            if (emailUser == null)
+            UserController userController = new UserController(_context);
+            var task = await userController.GetTokenUser(claimsPrincipal: TokenServices.ValidateJwtToken(token));
+            if (task.Result is not null)
             {
-                return BadRequest(new
-                {
-                    message = "token danificado."
-                });
+                return task.Result;
             }
-            var userCreator = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailUser);
-            if (userCreator == null)
+            var user = task.Value;
+            if (user == null)
             {
-                return NotFound(new
+                return StatusCode(500, new
                 {
-                    message = "Usuário não encontrado."
+                    message = "Erro na identificação do usuário"
                 });
             }
             try
             {
                 post.Guid = TokenServices.GenerateGUIDString();
-                post.UserId = userCreator.UserId;
+                post.UserId = user.UserId;
                 // Adiciona o novo post
                 _context.Posts.Add(post);
                 await _context.SaveChangesAsync();
@@ -169,6 +159,8 @@ namespace CsCrudApi.Controllers
             });
         }
 
+        [Authorize]
+        [RequireHttps]
         [HttpPost("mais-posts")]
         public async Task<ActionResult<dynamic>> PostList([FromBody] PostRequest request, [FromHeader] string token)
         {
@@ -179,8 +171,8 @@ namespace CsCrudApi.Controllers
                     message = "Token vazio."
                 });
             }
-
-
+            // ADICIONAR VALORES MÍNIMOS
+            // IMPLEMENTAR ALGORITMO DE RECOMENDAÇÃO A PARTIR DAQUI
             var posts = await PaginatePosts(_context.Posts.AsQueryable(), request.PageNumber, request.PageSize);
 
             return posts;
