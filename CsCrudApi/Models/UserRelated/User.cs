@@ -61,6 +61,9 @@ namespace CsCrudApi.Models.UserRelated
         [Required]
         [Column("status_curso")]
         public EUserStudyStatus StatusCourse { get; set; }
+
+        [Column("foto-perfil")]
+        public string ProfilePicture { get; set; }
     }
 
     // Enum for TpPreferencia

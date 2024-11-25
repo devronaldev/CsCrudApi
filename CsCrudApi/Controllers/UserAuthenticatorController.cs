@@ -1,14 +1,15 @@
 ﻿using CsCrudApi.Models;
+using System.IO;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using CsCrudApi.Models.UserRelated;
-using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using CsCrudApi.Services;
 using CsCrudApi.Models.UserRelated.Request;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
+using EllipticCurve.Utils;
 
 namespace CsCrudApi.Controllers
 {
@@ -158,6 +159,10 @@ namespace CsCrudApi.Controllers
             {
                 model.NmSocial = model.Name;
             }
+
+            var fileServices = new FileServices();
+            var profilePictureURL = await fileServices.UploadProfilePicture(await FileServices.GetStreamAsync(@"C:\cscrud\CsCrudApi\CsCrudApi\profile-pic-example.png"), ".png");
+
             var user = new User
             {
                 Email = model.Email,
@@ -170,7 +175,8 @@ namespace CsCrudApi.Controllers
                 NmSocial = model.NmSocial.Trim(),
                 TpColor = model.TpColor,
                 CdCidade = model.CdCidade,
-                IsEmailVerified = false
+                IsEmailVerified = false,
+                ProfilePicture = profilePictureURL
             };
 
             try
