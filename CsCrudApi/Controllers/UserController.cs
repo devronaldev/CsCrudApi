@@ -58,14 +58,14 @@ namespace CsCrudApi.Controllers
                 NmUsuario = user.NmSocial,
                 user.DtNasc,
                 user.Email,
-                user.TipoInteresse,
+                //user.FtPerfil,
+                NmInstituicao = $"{campus.SgCampus} - {campus.CampusName}", 
+                TpPreferencia = user.TipoInteresse,
                 user.GrauEscolaridade,
                 Seguidores = followers,
                 Seguindo = following,
                 Cidade = cidade,
                 IdCampus = campus.Id,
-                campus.SgCampus,
-                NmCampus = campus.CampusName,
                 Posts = posts
             };
         }
