@@ -27,7 +27,7 @@ namespace CsCrudApi.Services
             }
 
             var client = new SendGridClient(_apiKey);
-            var from = new EmailAddress("ronald.evangelista@aluno.ifsp.edu.br", "Conectando Saberes");
+            var from = new EmailAddress(Environment.GetEnvironmentVariable("EMAIL_SENDER"), "Conectando Saberes");
             var to = new EmailAddress(toEmail);
             var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
 
@@ -36,7 +36,7 @@ namespace CsCrudApi.Services
             if (response.StatusCode != HttpStatusCode.Accepted && response.StatusCode != HttpStatusCode.OK)
             {
                 // Aqui você pode logar ou tratar o erro da forma que preferir
-                throw new Exception($"Erro ao enviar e-mail1: {response.StatusCode} - Metódo: SendEmailAsync");
+                throw new Exception($"Erro ao enviar e-mail1: {response.Headers.ToString()} - Metódo: SendEmailAsync");
             }
         }
 
