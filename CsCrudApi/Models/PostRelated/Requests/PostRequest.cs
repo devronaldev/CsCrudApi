@@ -1,9 +1,11 @@
-﻿namespace CsCrudApi.Models.PostRelated.Requests
+﻿using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
+
+namespace CsCrudApi.Models.PostRelated.Requests
 {
     public class PostRequest
     {
-        public int PageNumber { get; set; }
-        public int PageSize { get; set; }
-        public int? UserId { get; set; }
+        public Post Post { get; set; }
+        public Category? Category { get; set; }
     }
 }

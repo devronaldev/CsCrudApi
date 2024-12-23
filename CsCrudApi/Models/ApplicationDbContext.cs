@@ -25,11 +25,11 @@ namespace CsCrudApi.Models
 
         public DbSet<PostRelated.Post> Posts { get; set; }
 
-        public DbSet<PostArea> PostsArea { get; set; }
-
         public DbSet<Area> Areas { get; set; }
 
         public DbSet<CampusOffer> CampusOffers { get; set; }
+
+        public DbSet<Category> Categories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -56,22 +56,11 @@ namespace CsCrudApi.Models
                 .HasForeignKey(p => p.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<PostArea>()
-                .HasOne<Area>()
-                .WithMany()
-                .HasForeignKey(pa => pa.AreaId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<PostArea>()
-                .HasOne<Post>()
-                .WithMany()
-                .HasForeignKey(pa => pa.GuidPost);
-
-            modelBuilder.Entity<PostArea>()
-                .HasKey(pa => new { pa.AreaId, pa.GuidPost });
-
             modelBuilder.Entity<CampusOffer>()
                 .HasKey(c => new { c.IdCampus, c.IdCourse });
+
+            modelBuilder.Entity<Category>()
+                .ToTable("categorias");
 
             base.OnModelCreating(modelBuilder);
         }

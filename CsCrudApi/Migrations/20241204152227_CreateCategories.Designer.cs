@@ -4,6 +4,7 @@ using CsCrudApi.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CsCrudApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241204152227_CreateCategories")]
+    partial class CreateCategories
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -45,7 +48,7 @@ namespace CsCrudApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("categorias", (string)null);
+                    b.ToTable("categorias");
                 });
 
             modelBuilder.Entity("CsCrudApi.Models.PostRelated.Post", b =>
@@ -54,14 +57,6 @@ namespace CsCrudApi.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)")
                         .HasColumnName("guid");
-
-                    b.Property<int>("AreaId")
-                        .HasColumnType("int")
-                        .HasColumnName("area");
-
-                    b.Property<int>("CategoryId")
-                        .HasColumnType("int")
-                        .HasColumnName("categoria");
 
                     b.Property<string>("DcTitulo")
                         .HasColumnType("longtext")
@@ -94,6 +89,39 @@ namespace CsCrudApi.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("post");
+                });
+
+            modelBuilder.Entity("CsCrudApi.Models.PostRelated.PostArea", b =>
+                {
+                    b.Property<int>("AreaId")
+                        .HasColumnType("int")
+                        .HasColumnName("id_area");
+
+                    b.Property<string>("GuidPost")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)")
+                        .HasColumnName("guid_post");
+
+                    b.HasKey("AreaId", "GuidPost");
+
+                    b.HasIndex("GuidPost");
+
+                    b.ToTable("area_post");
+                });
+
+            modelBuilder.Entity("CsCrudApi.Models.PostRelated.PostHasCategory", b =>
+                {
+                    b.Property<string>("PostGUID")
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.HasKey("PostGUID", "CategoryId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.ToTable("PostHasCategories");
                 });
 
             modelBuilder.Entity("CsCrudApi.Models.UserRelated.Cidade", b =>
@@ -193,6 +221,23 @@ namespace CsCrudApi.Migrations
                     b.ToTable("campus_oferece");
                 });
 
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.CollegeRelated.UserFollowingUser", b =>
+                {
+                    b.Property<int>("CdFollower")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_usuario_seguidor");
+
+                    b.Property<int>("CdFollowed")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_usuario_seguido");
+
+                    b.HasKey("CdFollower", "CdFollowed");
+
+                    b.HasIndex("CdFollowed");
+
+                    b.ToTable("usuario_seguindo_usuario");
+                });
+
             modelBuilder.Entity("CsCrudApi.Models.UserRelated.Request.EmailVerification", b =>
                 {
                     b.Property<int>("Id")
@@ -230,23 +275,6 @@ namespace CsCrudApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("emailverification");
-                });
-
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.Request.UserFollowingUser", b =>
-                {
-                    b.Property<int>("CdFollower")
-                        .HasColumnType("int")
-                        .HasColumnName("cd_usuario_seguidor");
-
-                    b.Property<int>("CdFollowed")
-                        .HasColumnType("int")
-                        .HasColumnName("cd_usuario_seguido");
-
-                    b.HasKey("CdFollower", "CdFollowed");
-
-                    b.HasIndex("CdFollowed");
-
-                    b.ToTable("usuario_seguindo_usuario");
                 });
 
             modelBuilder.Entity("CsCrudApi.Models.UserRelated.User", b =>
@@ -327,7 +355,37 @@ namespace CsCrudApi.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.Request.UserFollowingUser", b =>
+            modelBuilder.Entity("CsCrudApi.Models.PostRelated.PostArea", b =>
+                {
+                    b.HasOne("CsCrudApi.Models.UserRelated.CollegeRelated.Area", null)
+                        .WithMany()
+                        .HasForeignKey("AreaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CsCrudApi.Models.PostRelated.Post", null)
+                        .WithMany()
+                        .HasForeignKey("GuidPost")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CsCrudApi.Models.PostRelated.PostHasCategory", b =>
+                {
+                    b.HasOne("CsCrudApi.Models.PostRelated.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CsCrudApi.Models.PostRelated.Post", null)
+                        .WithMany()
+                        .HasForeignKey("PostGUID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.CollegeRelated.UserFollowingUser", b =>
                 {
                     b.HasOne("CsCrudApi.Models.UserRelated.User", null)
                         .WithMany()

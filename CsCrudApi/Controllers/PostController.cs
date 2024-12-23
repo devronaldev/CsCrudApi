@@ -1,12 +1,12 @@
 ﻿using CsCrudApi.Models;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.PostRelated.Requests;
-using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 
 namespace CsCrudApi.Controllers
@@ -19,8 +19,11 @@ namespace CsCrudApi.Controllers
         public PostController(ApplicationDbContext context) => _context = context;
 
         [HttpPost("criar-post")]
-        public async Task<ActionResult<dynamic>> CreatePost([FromBody] Post post, [FromHeader] string token)
+        public async Task<ActionResult<dynamic>> CreatePost([FromBody] PostRequest request, [FromHeader] string token)
         {
+            var post = request.Post;
+            var category = request.Category;            
+
             if (token == null)
             {
                 return BadRequest("Token vazio.");
@@ -40,7 +43,7 @@ namespace CsCrudApi.Controllers
             }
 
             post.QuantityLikes = 0;
-            post.PostDate = DateTime.UtcNow;
+            post.PostDate = DateTime.Now;
             post.Guid = TokenServices.GenerateGUIDString();
 
             try
@@ -149,33 +152,13 @@ namespace CsCrudApi.Controllers
 
             return Ok(new
             {
-                // post = guid, type, textPost, dcTitulo, (flDownload, qtLikes, qtComentarios) = add ao post.
+                // post = guid, type, textPost, dcTitulo, categorias,(flDownload, qtLikes, qtComentarios) = add ao post.
                 post,
                 // ftPerfil = user.ftPerfil
                 nmAutor = user.NmSocial,
                 grauEscolaridade = user.GrauEscolaridade,
                 tipoInteresse = user.TipoInteresse,
-                // dcCategorias = user.Categorias
             });
-        }
-
-        [Authorize]
-        [RequireHttps]
-        [HttpPost("mais-posts")]
-        public async Task<ActionResult<dynamic>> PostList([FromBody] PostRequest request, [FromHeader] string token)
-        {
-            if (string.IsNullOrEmpty(token))
-            {
-                return BadRequest(new
-                {
-                    message = "Token vazio."
-                });
-            }
-            // ADICIONAR VALORES MÍNIMOS
-            // IMPLEMENTAR ALGORITMO DE RECOMENDAÇÃO A PARTIR DAQUI
-            var posts = await PaginatePosts(_context.Posts.AsQueryable(), request.PageNumber, request.PageSize);
-
-            return posts;
         }
 
         public static async Task<List<Post>> PaginatePosts(IQueryable<Post> query, int pageNumber, int pageSize, Func<IQueryable<Post>, IQueryable<Post>>? filter = null)
