@@ -3,6 +3,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using CsCrudApi.Models.UserRelated;
+using Microsoft.AspNetCore.Mvc;
+using CsCrudApi.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace CsCrudApi.Services
 {
@@ -69,6 +72,22 @@ namespace CsCrudApi.Services
                 Console.WriteLine($"Erro de validação do token: {ex.Message}");
                 return null;
             }
+        }
+
+        public static async Task<User?> GetTokenUserAsync(ClaimsPrincipal claimsPrincipal, ApplicationDbContext context)
+        {
+            if (claimsPrincipal == null)
+            {
+                return null;
+            }
+
+            var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+            if (string.IsNullOrEmpty(emailClaim))
+            {
+                return null;
+            }
+
+            return await context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
         }
 
         public static string GenerateGUIDString() => Guid.NewGuid().ToString("N");

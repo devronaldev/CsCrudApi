@@ -48,18 +48,11 @@ namespace CsCrudApi.Controllers
 
             try
             {
-                UserController userController = new UserController(_context);
-                var task = await userController.GetTokenUser(claimsPrincipal: TokenServices.ValidateJwtToken(token));
-                if (task.Result is not null)
-                {
-                    return task.Result;
-                }
-
-                var user = task.Value;
-
+                //Verificações de usuário
+                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
                 if (user == null)
                 {
-                    return StatusCode(500, new
+                    return BadRequest(new
                     {
                         message = "Erro na identificação do usuário"
                     });
@@ -96,20 +89,17 @@ namespace CsCrudApi.Controllers
                     message = "Token vazio."
                 });
             }
-            UserController userController = new UserController(_context);
-            var task = await userController.GetTokenUser(claimsPrincipal: TokenServices.ValidateJwtToken(token));
-            if (task.Result is not null)
-            {
-                return task.Result;
-            }
-            var user = task.Value;
+
+            //Verificações de usuário
+            var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
             if (user == null)
             {
-                return StatusCode(500, new
+                return BadRequest(new
                 {
                     message = "Erro na identificação do usuário"
                 });
             }
+
             try
             {
                 post.Guid = TokenServices.GenerateGUIDString();
@@ -126,8 +116,8 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        [HttpGet("mostrar-post")]
-        public async Task<ActionResult<dynamic>> ShowPost([FromQuery] string guid)
+        [HttpGet("{guid}")]
+        public async Task<ActionResult<dynamic>> ShowPost([FromRoute] string guid)
         {
             if (guid == null)
             {
@@ -150,6 +140,16 @@ namespace CsCrudApi.Controllers
                 return NotFound(new { message = "Usuário não encontrado." });
             }
 
+            var campus = await _context.Campi.FirstOrDefaultAsync(c => c.Id == user.CdCampus);
+            if (campus == null)
+            {
+                return NotFound(new
+                {
+                    Message = "Campus não encontrado."
+                });
+            }
+            post.QuantityLikes = await CountLikesAsync(post.Guid);
+
             return Ok(new
             {
                 // post = guid, type, textPost, dcTitulo, categorias,(flDownload, qtLikes, qtComentarios) = add ao post.
@@ -158,7 +158,97 @@ namespace CsCrudApi.Controllers
                 nmAutor = user.NmSocial,
                 grauEscolaridade = user.GrauEscolaridade,
                 tipoInteresse = user.TipoInteresse,
+                nmInstituicao = $"{campus.SgCampus} - {campus.CampusName}"
             });
+        }
+
+        [HttpGet("{userId}")]
+        public async Task<List<Post>> GetUserPosts([FromRoute] int userId, [FromQuery] int pageNumber, int pageSize)
+        {
+            var posts = await PaginatePosts(_context.Posts.AsQueryable(), 
+                pageNumber, 
+                pageSize, 
+                p => p.Where(p => p.UserId == userId)
+                .OrderByDescending(p => p.PostDate));
+
+            return await CountLikesAsync(posts);
+        }
+
+        [HttpPost("like/{postguid}")]
+        public async Task<ActionResult<dynamic>> LikePost([FromRoute] string postguid, [FromHeader] string token)
+        {
+            if(postguid.IsNullOrEmpty())
+            {
+                return BadRequest(new
+                {
+                    message = "Post nulo ou inválido."
+                });
+            }
+
+            if (token.IsNullOrEmpty())
+            {
+                return BadRequest(new
+                {
+                    message = "Token nulo ou vazio."
+                });
+            }
+
+            //Verificações de usuário
+            var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
+            if (user == null)
+            {
+                return BadRequest(new
+                {
+                    message = "Erro na identificação do usuário"
+                });
+            }
+
+            var like = await _context.PostLikes
+            .FirstOrDefaultAsync(pl => pl.PostGuid == postguid && pl.UserId == user.UserId);
+            if (like != null)
+            {
+                like.UpdatedAt = DateTime.UtcNow;
+                
+                if(like.IsActive == false)
+                {
+                    like.IsActive = true;
+                }
+                else
+                {
+                    like.IsActive = false;
+                }
+                
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    Message = "O like foi atualizado"
+                });
+            }
+
+            try
+            {
+            
+                UserLikesPost newLike = new UserLikesPost
+                {
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    PostGuid = postguid,
+                    UserId = user.UserId,
+                    IsActive = true,
+                };
+
+                _context.PostLikes.Add(newLike);
+                await _context.SaveChangesAsync();
+                return Ok(new
+                {
+                    Message = "Like adicionado com sucesso."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = $"Erro inesperado: {ex}" });
+            }
         }
 
         public static async Task<List<Post>> PaginatePosts(IQueryable<Post> query, int pageNumber, int pageSize, Func<IQueryable<Post>, IQueryable<Post>>? filter = null)
@@ -170,14 +260,21 @@ namespace CsCrudApi.Controllers
             return items;
         }
 
-        [HttpGet("{userId}")]
-        public async Task<List<Post>> GetUserPosts([FromRoute] int userId, [FromQuery] int pageNumber, int pageSize)
+        [NonAction]
+        public async Task<int> CountLikesAsync(string postGuid)
         {
-            var posts = await PaginatePosts(_context.Posts.AsQueryable(), 
-                pageNumber, 
-                pageSize, 
-                p => p.Where(p => p.UserId == userId)
-                .OrderByDescending(p => p.PostDate));
+            int count = await _context.Posts.Where(p => p.Guid == postGuid).CountAsync();
+            return count;
+        }
+
+        [NonAction]
+        public async Task<List<Post>> CountLikesAsync(List<Post> posts)
+        {
+            foreach(var post in posts)
+            {
+                post.QuantityLikes = await CountLikesAsync(post.Guid);
+            }
+
             return posts;
         }
     } 

@@ -1,4 +1,5 @@
 ﻿using CsCrudApi.Models.PostRelated;
+using CsCrudApi.Models.PostRelated.Requests;
 using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Models.UserRelated.CollegeRelated;
 using CsCrudApi.Models.UserRelated.Request;
@@ -31,6 +32,8 @@ namespace CsCrudApi.Models
 
         public DbSet<Category> Categories { get; set; }
 
+        public DbSet<UserLikesPost> PostLikes { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Definir a chave composta
@@ -61,6 +64,21 @@ namespace CsCrudApi.Models
 
             modelBuilder.Entity<Category>()
                 .ToTable("categorias");
+
+            modelBuilder.Entity<UserLikesPost>()
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(ulp => ulp.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserLikesPost>()
+                .HasOne<Post>()
+                .WithMany()
+                .HasForeignKey(ulp => ulp.PostGuid)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserLikesPost>()
+                .HasKey(ulp => new { ulp.PostGuid, ulp.UserId });
 
             base.OnModelCreating(modelBuilder);
         }

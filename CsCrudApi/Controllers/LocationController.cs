@@ -33,7 +33,7 @@ namespace CsCrudApi.Controllers
                 });
             }
 
-            var cidade = _context.Cidades.FirstOrDefault(c => c.IdCidade == id);
+            var cidade = await _context.Cidades.FirstOrDefaultAsync(c => c.IdCidade == id);
             if (cidade == null)
             {
                 return NotFound(new

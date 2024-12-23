@@ -58,13 +58,12 @@ namespace CsCrudApi.Controllers
                 NmUsuario = user.NmSocial,
                 user.DtNasc,
                 user.Email,
-                //user.FtPerfil,
-                NmInstituicao = $"{campus.SgCampus} - {campus.CampusName}", 
+                //user.FtPerfil, 
                 TpPreferencia = user.TipoInteresse,
-                user.GrauEscolaridade,
                 Seguidores = followers,
                 Seguindo = following,
-                Cidade = cidade,
+                Cidade = cidade.Name,
+                NmInstituicao = $"{campus.SgCampus} - {campus.CampusName}",
                 IdCampus = campus.Id,
                 Posts = posts
             };
@@ -110,16 +109,10 @@ namespace CsCrudApi.Controllers
                 }
 
                 //Verificações de usuário
-                var task = await GetTokenUser(claimsPrincipal: TokenServices.ValidateJwtToken(token));
-                if (task.Result is not null)
-                {
-                    return task.Result;
-                }
-
-                var user = task.Value;
+                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
                 if (user == null)
                 {
-                    return StatusCode(500, new
+                    return BadRequest(new
                     {
                         message = "Erro na identificação do usuário"
                     });
@@ -170,16 +163,11 @@ namespace CsCrudApi.Controllers
                     return BadRequest("Erro: E-mails diferentes.");
                 }
 
-                var task = await GetTokenUser(claimsPrincipal: TokenServices.ValidateJwtToken(token));
-                if (task.Result is not null)
-                {
-                    return task.Result;
-                }
-
-                var user = task.Value;
+                //Verificações de usuário
+                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
                 if (user == null)
                 {
-                    return StatusCode(500, new
+                    return BadRequest(new
                     {
                         message = "Erro na identificação do usuário"
                     });
@@ -256,31 +244,5 @@ namespace CsCrudApi.Controllers
         protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);
 
         protected async Task<int> GetFollowing(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollower == idUser);
-
-        [NonAction]
-        public async Task<ActionResult<dynamic>> GetTokenUser(ClaimsPrincipal claimsPrincipal)
-        {
-            if (claimsPrincipal == null)
-            {
-                return BadRequest("Erro: Token inválido ou não pode ser validado.");
-            }
-
-            var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
-            if (string.IsNullOrEmpty(emailClaim))
-            {
-                return BadRequest("Erro: Token inválido, claim de e-mail ausente.");
-            }
-
-            User? user = await _context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
-            if (user == null)
-            {
-                return BadRequest(new
-                {
-                    message = "Erro: Token inválido, claim de e-mail ausente."
-                });
-            }
-
-            return user;
-        }
     }
 }
