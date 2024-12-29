@@ -34,9 +34,6 @@ namespace CsCrudApi.Models.PostRelated
         [Column("id_usuario")]
         public int UserId { get; set; }
 
-        [Column("categoria")]
-        public List<int> CategoryId { get; set; }
-
         [Column("area")]
         public int AreaId { get; set; }
     }

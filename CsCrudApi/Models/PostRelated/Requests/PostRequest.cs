@@ -6,6 +6,6 @@ namespace CsCrudApi.Models.PostRelated.Requests
     public class PostRequest
     {
         public Post Post { get; set; }
-        public Category? Category { get; set; }
+        public List<int>? Categories { get; set; }
     }
 }

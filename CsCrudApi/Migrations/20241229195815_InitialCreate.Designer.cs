@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CsCrudApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20241223232759_HotFixProd")]
-    partial class HotFixProd
+    [Migration("20241229195815_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -62,11 +62,6 @@ namespace CsCrudApi.Migrations
                         .HasColumnType("int")
                         .HasColumnName("area");
 
-                    b.Property<string>("CategoryId")
-                        .IsRequired()
-                        .HasColumnType("longtext")
-                        .HasColumnName("categoria");
-
                     b.Property<string>("DcTitulo")
                         .HasColumnType("longtext")
                         .HasColumnName("descricao_titulo");
@@ -98,6 +93,23 @@ namespace CsCrudApi.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("post");
+                });
+
+            modelBuilder.Entity("CsCrudApi.Models.PostRelated.Requests.PostHasCategory", b =>
+                {
+                    b.Property<string>("PostGUID")
+                        .HasColumnType("varchar(32)")
+                        .HasColumnName("guid_post");
+
+                    b.Property<int>("CategoryID")
+                        .HasColumnType("int")
+                        .HasColumnName("id_categoria");
+
+                    b.HasKey("PostGUID", "CategoryID");
+
+                    b.HasIndex("CategoryID");
+
+                    b.ToTable("post_tem_categoria");
                 });
 
             modelBuilder.Entity("CsCrudApi.Models.PostRelated.Requests.UserLikesPost", b =>
@@ -356,6 +368,21 @@ namespace CsCrudApi.Migrations
                     b.HasOne("CsCrudApi.Models.UserRelated.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CsCrudApi.Models.PostRelated.Requests.PostHasCategory", b =>
+                {
+                    b.HasOne("CsCrudApi.Models.PostRelated.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CsCrudApi.Models.PostRelated.Post", null)
+                        .WithMany()
+                        .HasForeignKey("PostGUID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -22,7 +22,7 @@ namespace CsCrudApi.Controllers
         public async Task<ActionResult<dynamic>> CreatePost([FromBody] PostRequest request, [FromHeader] string token)
         {
             var post = request.Post;
-            var category = request.Category;            
+            var categories = request.Categories;            
 
             if (token == null)
             {
@@ -61,6 +61,13 @@ namespace CsCrudApi.Controllers
                 post.UserId = user.UserId;
 
                 _context.Posts.Add(post);
+                if (categories != null)
+                {
+                    foreach (int category in categories)
+                    {
+                        _context.PostHasCategories.Add(new PostHasCategory { PostGUID = post.Guid, CategoryID = category });
+                    }
+                }
                 await _context.SaveChangesAsync(); // Salva o post primeiro para garantir que tenha um GUID disponível
 
                 return Ok(post); // Retorna o post criado
@@ -154,6 +161,7 @@ namespace CsCrudApi.Controllers
             {
                 // post = guid, type, textPost, dcTitulo, categorias,(flDownload, qtLikes, qtComentarios) = add ao post.
                 post,
+                dcCategorias = GetCategories(post.Guid),
                 // ftPerfil = user.ftPerfil
                 nmAutor = user.NmSocial,
                 grauEscolaridade = user.GrauEscolaridade,
@@ -276,6 +284,23 @@ namespace CsCrudApi.Controllers
             }
 
             return posts;
+        }
+
+        public async Task<List<int>> GetCategories(string guid)
+        {
+            if (guid.IsNullOrEmpty())
+            {
+                return null;
+            }
+
+            var phc = await _context.PostHasCategories.ToListAsync();
+
+            List<int> dcCategories = new List<int>();
+            foreach (var category in phc)
+            {
+                dcCategories.Add(category.CategoryID);
+            }
+            return dcCategories;
         }
     } 
 }
