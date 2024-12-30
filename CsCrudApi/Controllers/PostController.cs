@@ -63,12 +63,36 @@ namespace CsCrudApi.Controllers
                 _context.Posts.Add(post);
                 if (categories != null)
                 {
-                    foreach (int category in categories)
+                    foreach (int categoryId in categories)
                     {
-                        _context.PostHasCategories.Add(new PostHasCategory { PostGUID = post.Guid, CategoryID = category });
+                        // Verificar se a categoria existe no banco
+                        var category = await _context.Categories.FindAsync(categoryId);
+
+                        // Se não existir, criar uma nova categoria
+                        if (category == null)
+                        {
+                            category = new Category
+                            {
+                                Id = categoryId,
+                                Name = $"Categoria {categoryId}", // Define um nome padrão ou obtenha-o de outro lugar
+                                Description = $"Descrição padrão para categoria {categoryId}", // Altere se necessário
+                                Quantity = 0 // Inicialize os campos com valores padrão
+                            };
+
+                            _context.Categories.Add(category); // Adiciona ao contexto
+                        }
+
+                        // Criar a associação entre Post e Categoria
+                        _context.PostHasCategories.Add(new PostHasCategory
+                        {
+                            PostGUID = post.Guid,
+                            CategoryID = categoryId
+                        });
                     }
                 }
-                await _context.SaveChangesAsync(); // Salva o post primeiro para garantir que tenha um GUID disponível
+
+                // Salvar as alterações no banco
+                await _context.SaveChangesAsync();
 
                 return Ok(post); // Retorna o post criado
             }
@@ -123,7 +147,7 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        [HttpGet("{guid}")]
+        [HttpGet("post/{guid}")]
         public async Task<ActionResult<dynamic>> ShowPost([FromRoute] string guid)
         {
             if (guid == null)
@@ -170,7 +194,7 @@ namespace CsCrudApi.Controllers
             });
         }
 
-        [HttpGet("{userId}")]
+        [HttpGet("user/{userId}")]
         public async Task<List<Post>> GetUserPosts([FromRoute] int userId, [FromQuery] int pageNumber, int pageSize)
         {
             var posts = await PaginatePosts(_context.Posts.AsQueryable(), 
@@ -286,6 +310,7 @@ namespace CsCrudApi.Controllers
             return posts;
         }
 
+        [NonAction]
         public async Task<List<int>> GetCategories(string guid)
         {
             if (guid.IsNullOrEmpty())
