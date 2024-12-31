@@ -147,7 +147,8 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        [HttpGet("post/{guid}")]
+        //REMOVER REDUNDÂNCIA
+        [HttpGet("{guid}")]
         public async Task<ActionResult<dynamic>> ShowPost([FromRoute] string guid)
         {
             if (guid == null)
@@ -192,6 +193,69 @@ namespace CsCrudApi.Controllers
                 tipoInteresse = user.TipoInteresse,
                 nmInstituicao = $"{campus.SgCampus} - {campus.CampusName}"
             });
+        }
+
+        [HttpDelete("delete/{guid}")]
+        public async Task<ActionResult<dynamic>> DeletePost([FromRoute] string guid, [FromBody] string token)
+        {
+            if (guid == null || guid.Length != 32)
+            {
+                return BadRequest(new
+                {
+                    Message = "O guid não pode estar vazio."
+                });
+            }
+
+            if (token == null)
+            {
+                return BadRequest(new
+                {
+                    Message = "O token não pode ser vazio."
+                });
+            }
+
+            try
+            {
+                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+
+                if (user == null)
+                {
+                    return Unauthorized(new
+                    {
+                        Message = "Token não válido ou expirado."
+                    });
+                }
+
+                var post = await _context.Posts.FirstOrDefaultAsync(post => post.Guid == guid);
+                if (post == null)
+                {
+                    return NotFound(new
+                    {
+                        Message = "O post não foi encontrado."
+                    });
+                }
+
+                if (post.UserId != user.UserId)
+                {
+                    return StatusCode(403, new
+                    {
+                        Message = "Você não tem permissão para excluir esse post."
+                    });
+                }
+
+                _context.Posts.Remove(post);
+                await _context.SaveChangesAsync();
+                return Ok(new
+                {
+                    Message = "O post foi devidamente excluído."
+                });
+
+            } catch (Exception ex) {
+                return StatusCode(500, new
+                {
+                    Message = $"Erro inesperado. Confira detalhes: {ex.Message}."
+                }); 
+            }
         }
 
         [HttpGet("user/{userId}")]
@@ -318,7 +382,7 @@ namespace CsCrudApi.Controllers
                 return null;
             }
 
-            var phc = await _context.PostHasCategories.ToListAsync();
+            var phc = await _context.PostHasCategories.Where(p => p.PostGUID == guid).ToListAsync();
 
             List<int> dcCategories = new List<int>();
             foreach (var category in phc)
@@ -327,5 +391,5 @@ namespace CsCrudApi.Controllers
             }
             return dcCategories;
         }
-    } 
+    }
 }

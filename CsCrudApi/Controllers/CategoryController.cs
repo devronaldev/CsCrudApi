@@ -1,4 +1,5 @@
 ﻿using CsCrudApi.Models;
+using CsCrudApi.Models.PostRelated;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +13,7 @@ namespace CsCrudApi.Controllers
         public CategoryController(ApplicationDbContext context) => _context = context;
 
         [HttpGet("listar-categorias")]
-        public async Task<ActionResult<dynamic>> GetCategories() => await _context.Categories.ToListAsync();
+        public async Task<ActionResult<dynamic>> GetCategories() => GetQuantity(await _context.Categories.ToListAsync());
 
         [HttpGet("{id}")]
         public async Task<ActionResult<dynamic>> GetCategory([FromRoute] int id)
@@ -26,6 +27,23 @@ namespace CsCrudApi.Controllers
                 });
             }
             return Ok(c);
+        }
+
+        [NonAction]
+        public async Task<List<Category>> GetQuantity(List<Category> categories)
+        {
+            var categoryIds = categories.Select(c => c.Id).ToList();
+            var trackedCategories = await _context.Categories
+                .Where(c => categoryIds.Contains(c.Id))
+                .ToListAsync();
+
+            foreach (var category in trackedCategories)
+            {
+                category.Quantity = await _context.PostHasCategories.CountAsync(phc => phc.CategoryID == category.Id);
+            }
+
+            await _context.SaveChangesAsync();
+            return trackedCategories; 
         }
     }
 }
