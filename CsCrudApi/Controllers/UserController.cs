@@ -60,6 +60,7 @@ namespace CsCrudApi.Controllers
                 user.Email,
                 //user.FtPerfil, 
                 TpPreferencia = user.TipoInteresse,
+                GrauEscolaridade = user.GrauEscolaridade,
                 Seguidores = followers,
                 Seguindo = following,
                 Cidade = cidade.Name,
