@@ -13,7 +13,7 @@ namespace CsCrudApi.Controllers
         public CategoryController(ApplicationDbContext context) => _context = context;
 
         [HttpGet("listar-categorias")]
-        public async Task<ActionResult<dynamic>> GetCategories() => GetQuantity(await _context.Categories.ToListAsync());
+        public async Task<ActionResult<dynamic>> GetCategories() => await _context.Categories.ToListAsync();
 
         [HttpGet("{id}")]
         public async Task<ActionResult<dynamic>> GetCategory([FromRoute] int id)
@@ -29,6 +29,7 @@ namespace CsCrudApi.Controllers
             return Ok(c);
         }
 
+        /*
         [NonAction]
         public async Task<List<Category>> GetQuantity(List<Category> categories)
         {
@@ -45,5 +46,6 @@ namespace CsCrudApi.Controllers
             await _context.SaveChangesAsync();
             return trackedCategories; 
         }
+        */
     }
 }
