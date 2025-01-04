@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using CsCrudApi.Models.UserRelated.CollegeRelated;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CsCrudApi.Models.UserRelated
@@ -61,6 +62,8 @@ namespace CsCrudApi.Models.UserRelated
         [Required]
         [Column("status_curso")]
         public EUserStudyStatus StatusCourse { get; set; }
+
+        public int Curso { get; set; }
     }
 
     // Enum for TpPreferencia

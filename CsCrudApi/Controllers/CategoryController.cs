@@ -29,6 +29,22 @@ namespace CsCrudApi.Controllers
             return Ok(c);
         }
 
+        [HttpGet("cursos")]
+        public async Task<ActionResult<dynamic>> GetCursos() => await _context.Cursos.ToListAsync();
+
+        [HttpGet("curso/{id}")]
+        public async Task<ActionResult<dynamic>> GetCurso([FromRoute] int id)
+        {
+            if (id == 0)
+            {
+                return BadRequest(new
+                {
+                    Message = "O id não pode ser 0."
+                });
+            }
+            return await _context.Cursos.FirstOrDefaultAsync(c => c.IdCourse == id);
+        }
+
         /*
         [NonAction]
         public async Task<List<Category>> GetQuantity(List<Category> categories)

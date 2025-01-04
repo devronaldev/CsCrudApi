@@ -28,6 +28,8 @@ namespace CsCrudApi.Models
 
         public DbSet<Area> Areas { get; set; }
 
+        public DbSet<Curso> Cursos { get; set; }
+
         public DbSet<CampusOffer> CampusOffers { get; set; }
 
         public DbSet<Category> Categories { get; set; }

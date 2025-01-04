@@ -170,7 +170,9 @@ namespace CsCrudApi.Controllers
                 NmSocial = model.NmSocial.Trim(),
                 TpColor = model.TpColor,
                 CdCidade = model.CdCidade,
-                IsEmailVerified = false
+                IsEmailVerified = false,
+                Curso = model.Curso,
+                StatusCourse = model.StatusCourse
             };
 
             try
