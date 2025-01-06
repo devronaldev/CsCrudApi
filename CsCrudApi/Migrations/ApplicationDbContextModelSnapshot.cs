@@ -87,8 +87,6 @@ namespace CsCrudApi.Migrations
 
                     b.HasKey("Guid");
 
-                    b.HasIndex("AreaId");
-
                     b.HasIndex("UserId");
 
                     b.ToTable("post");
@@ -237,6 +235,30 @@ namespace CsCrudApi.Migrations
                     b.ToTable("campus_oferece");
                 });
 
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.CollegeRelated.Curso", b =>
+                {
+                    b.Property<int>("IdCourse")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_curso");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdCourse"));
+
+                    b.Property<int>("CdArea")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_area");
+
+                    b.Property<string>("NmCourse")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)")
+                        .HasColumnName("nome_curso");
+
+                    b.HasKey("IdCourse");
+
+                    b.ToTable("curso");
+                });
+
             modelBuilder.Entity("CsCrudApi.Models.UserRelated.Request.EmailVerification", b =>
                 {
                     b.Property<int>("Id")
@@ -310,6 +332,9 @@ namespace CsCrudApi.Migrations
                         .HasColumnType("int")
                         .HasColumnName("cd_cidade");
 
+                    b.Property<int>("Curso")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("DtNasc")
                         .HasColumnType("datetime(6)")
                         .HasColumnName("data_nascimento");
@@ -364,21 +389,11 @@ namespace CsCrudApi.Migrations
 
             modelBuilder.Entity("CsCrudApi.Models.PostRelated.Post", b =>
                 {
-                    b.HasOne("CsCrudApi.Models.UserRelated.CollegeRelated.Area", "Area")
+                    b.HasOne("CsCrudApi.Models.UserRelated.User", null)
                         .WithMany()
-                        .HasForeignKey("AreaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CsCrudApi.Models.UserRelated.User", "User")
-                        .WithMany("Posts")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Area");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("CsCrudApi.Models.PostRelated.Requests.PostHasCategory", b =>
@@ -413,30 +428,17 @@ namespace CsCrudApi.Migrations
 
             modelBuilder.Entity("CsCrudApi.Models.UserRelated.Request.UserFollowingUser", b =>
                 {
-                    b.HasOne("CsCrudApi.Models.UserRelated.User", "Followed")
-                        .WithMany("Followers")
+                    b.HasOne("CsCrudApi.Models.UserRelated.User", null)
+                        .WithMany()
                         .HasForeignKey("CdFollowed")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CsCrudApi.Models.UserRelated.User", "Follower")
-                        .WithMany("Following")
+                    b.HasOne("CsCrudApi.Models.UserRelated.User", null)
+                        .WithMany()
                         .HasForeignKey("CdFollower")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("Followed");
-
-                    b.Navigation("Follower");
-                });
-
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.User", b =>
-                {
-                    b.Navigation("Followers");
-
-                    b.Navigation("Following");
-
-                    b.Navigation("Posts");
                 });
 #pragma warning restore 612, 618
         }

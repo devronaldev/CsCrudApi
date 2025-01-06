@@ -32,14 +32,11 @@
             font-size: 16px;
         }
 
-        b {
-            color: #d9534f; /* Destaque em vermelho */
-        }
-
         a {
-            color: #ffffff;
+            color: rgb(0, 0, 0);
             text-decoration: none;
             font-weight: bold;
+            text-decoration: underline;
         }
 
         .btn {
@@ -56,6 +53,10 @@
             color: #aaaaaa;
             margin-top: 20px;
         }
+
+        .advice{
+            color: red;
+        }
     </style>
 </head>
 <body>
@@ -63,7 +64,7 @@
         <h1>Olá,</h1>
         <p>Clique no link abaixo para verificar que esse é seu novo e-mail:</p>
         <p><a href="##LINK_VERIFICACAO##" class="btn"><b>Verificar novo E-mail</b></a></p>
-        <p><b>O TOKEN SÓ É VÁLIDO POR UMA HORA!</b></p>
+        <p><b class="advice">ATENÇÃO!!! O TOKEN SÓ É VÁLIDO POR UMA HORA!</b></p>
         <br />
         <p>Se você não solicitou essa verificação, por favor, <a href="##LINK_CANCELAR_TROCA##"><strong>CLIQUE AQUI</strong></a> para desassociar seu e-mail ao cadastro.</p>
     </div>

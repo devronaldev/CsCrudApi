@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CsCrudApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20241229195815_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20250104235944_CursoAdded")]
+    partial class CursoAdded
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -238,6 +238,30 @@ namespace CsCrudApi.Migrations
                     b.ToTable("campus_oferece");
                 });
 
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.CollegeRelated.Curso", b =>
+                {
+                    b.Property<int>("IdCourse")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_curso");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdCourse"));
+
+                    b.Property<int>("CdArea")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_area");
+
+                    b.Property<string>("NmCourse")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)")
+                        .HasColumnName("nome_curso");
+
+                    b.HasKey("IdCourse");
+
+                    b.ToTable("curso");
+                });
+
             modelBuilder.Entity("CsCrudApi.Models.UserRelated.Request.EmailVerification", b =>
                 {
                     b.Property<int>("Id")
@@ -310,6 +334,9 @@ namespace CsCrudApi.Migrations
                     b.Property<int>("CdCidade")
                         .HasColumnType("int")
                         .HasColumnName("cd_cidade");
+
+                    b.Property<int>("Curso")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("DtNasc")
                         .HasColumnType("datetime(6)")

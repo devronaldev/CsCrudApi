@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace CsCrudApi.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class CursoAdded : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -101,6 +101,22 @@ namespace CsCrudApi.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
+                name: "curso",
+                columns: table => new
+                {
+                    id_curso = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    cd_area = table.Column<int>(type: "int", nullable: false),
+                    nome_curso = table.Column<string>(type: "varchar(128)", maxLength: 128, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_curso", x => x.id_curso);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
                 name: "emailverification",
                 columns: table => new
                 {
@@ -142,7 +158,8 @@ namespace CsCrudApi.Migrations
                     tipo_cor = table.Column<int>(type: "int", nullable: false),
                     cd_cidade = table.Column<int>(type: "int", nullable: false),
                     is_email_verified = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    status_curso = table.Column<int>(type: "int", nullable: false)
+                    status_curso = table.Column<int>(type: "int", nullable: false),
+                    Curso = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -293,6 +310,9 @@ namespace CsCrudApi.Migrations
 
             migrationBuilder.DropTable(
                 name: "cidade");
+
+            migrationBuilder.DropTable(
+                name: "curso");
 
             migrationBuilder.DropTable(
                 name: "emailverification");

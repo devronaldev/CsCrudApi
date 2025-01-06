@@ -1,5 +1,6 @@
 ﻿using CsCrudApi.Models;
 using CsCrudApi.Models.PostRelated;
+using CsCrudApi.Models.UserRelated.CollegeRelated;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -42,7 +43,15 @@ namespace CsCrudApi.Controllers
                     Message = "O id não pode ser 0."
                 });
             }
-            return await _context.Cursos.FirstOrDefaultAsync(c => c.IdCourse == id);
+            var c = await _context.Cursos.FirstOrDefaultAsync(c => c.IdCourse == id);
+            if (c == null)
+            {
+                return NotFound(new
+                {
+                    Message = "O curso não foi encontrado."
+                });
+            }
+            return Ok(c);
         }
 
         /*

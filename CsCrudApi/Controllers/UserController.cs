@@ -19,12 +19,9 @@ namespace CsCrudApi.Controllers
 
         [HttpGet("perfil/{userId}")]
         [AllowAnonymous]
-        public async Task<ActionResult<dynamic>> Profile([FromRoute] int userId, [FromQuery] int pageSize, int pageNumber)
+        public async Task<ActionResult<dynamic>> Profile([FromRoute] int userId)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
-
-            pageNumber = pageNumber < 1 ? 1 : pageNumber;
-            pageSize = pageSize < 1 ? 10 : pageSize;
 
             if (user == null)
             {
@@ -50,7 +47,6 @@ namespace CsCrudApi.Controllers
             int following = await GetFollowing(user.UserId);
 
             PostController postController = new PostController(_context);
-            var posts = await postController.GetUserPosts(user.UserId, pageNumber, pageSize);
 
             return new
             {
@@ -60,14 +56,13 @@ namespace CsCrudApi.Controllers
                 user.Email,
                 //user.FtPerfil, 
                 TpPreferencia = user.TipoInteresse,
-                Curso = user.Curso,
-                GrauEscolaridade = user.GrauEscolaridade,
+                user.Curso,
+                user.GrauEscolaridade,
                 Seguidores = followers,
                 Seguindo = following,
                 Cidade = cidade.Name,
                 NmInstituicao = $"{campus.SgCampus} - {campus.CampusName}",
-                IdCampus = campus.Id,
-                Posts = posts
+                IdCampus = campus.Id
             };
         }
 

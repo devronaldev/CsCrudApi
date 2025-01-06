@@ -259,7 +259,7 @@ namespace CsCrudApi.Controllers
         }
 
         [HttpGet("user/{userId}")]
-        public async Task<List<Post>> GetUserPosts([FromRoute] int userId, [FromQuery] int pageNumber, int pageSize)
+        public async Task<List<PostRequest>> GetUserPosts([FromRoute] int userId, [FromQuery] int pageNumber, int pageSize)
         {
             var posts = await PaginatePosts(_context.Posts.AsQueryable(), 
                 pageNumber, 
@@ -267,7 +267,19 @@ namespace CsCrudApi.Controllers
                 p => p.Where(p => p.UserId == userId)
                 .OrderByDescending(p => p.PostDate));
 
-            return await CountLikesAsync(posts);
+            posts = await CountLikesAsync(posts);
+
+            var listPosts = new List<PostRequest>();
+            foreach(Post p in posts)
+            {
+                var request = new PostRequest
+                {
+                    Post = p,
+                    Categories = await GetCategories(p.Guid)
+                };
+                listPosts.Add(request);
+            }
+            return listPosts;
         }
 
         [HttpPost("like/{postguid}")]
