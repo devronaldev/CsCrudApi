@@ -147,7 +147,6 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        //REMOVER REDUNDÂNCIA
         [HttpGet("{guid}")]
         public async Task<ActionResult<dynamic>> ShowPost([FromRoute] string guid)
         {
@@ -182,11 +181,12 @@ namespace CsCrudApi.Controllers
             }
             post.QuantityLikes = await CountLikesAsync(post.Guid);
 
+            var fullPost = new PostRequest { Post = post, Categories = await GetCategories(post.Guid)};
+
             return Ok(new
             {
                 // post = guid, type, textPost, dcTitulo, categorias,(flDownload, qtLikes, qtComentarios) = add ao post.
-                post,
-                dcCategorias = GetCategories(post.Guid),
+                Post = fullPost,
                 // ftPerfil = user.ftPerfil
                 nmAutor = user.NmSocial,
                 grauEscolaridade = user.GrauEscolaridade,
