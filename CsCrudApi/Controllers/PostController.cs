@@ -182,16 +182,21 @@ namespace CsCrudApi.Controllers
             post.QuantityLikes = await CountLikesAsync(post.Guid);
 
             var fullPost = new PostRequest { Post = post, Categories = await GetCategories(post.Guid)};
+            var userFiltered = new
+            {
+                userId = user.UserId,
+                nmAutor = user.NmSocial,
+                grauEscolaridade = user.GrauEscolaridade,
+                nmInstituicao = $"{campus.SgCampus} - {campus.CampusName}",
+                cursoId = user.Curso,
+                tipoInteresse = user.TipoInteresse
+            };
 
             return Ok(new
             {
-                // post = guid, type, textPost, dcTitulo, categorias,(flDownload, qtLikes, qtComentarios) = add ao post.
-                Post = fullPost,
                 // ftPerfil = user.ftPerfil
-                nmAutor = user.NmSocial,
-                grauEscolaridade = user.GrauEscolaridade,
-                tipoInteresse = user.TipoInteresse,
-                nmInstituicao = $"{campus.SgCampus} - {campus.CampusName}"
+                User = userFiltered,
+                Post = fullPost
             });
         }
 
