@@ -180,8 +180,6 @@ namespace CsCrudApi.Controllers
                 });
             }
             post.QuantityLikes = await CountLikesAsync(post.Guid);
-
-            var fullPost = new PostRequest { Post = post, Categories = await GetCategories(post.Guid)};
             var userFiltered = new
             {
                 userId = user.UserId,
@@ -195,8 +193,9 @@ namespace CsCrudApi.Controllers
             return Ok(new
             {
                 // ftPerfil = user.ftPerfil
-                EntidadePost = userFiltered,
-                Post = fullPost
+                User = userFiltered,
+                Post = post,
+                Categories = await GetCategories(post.Guid)
             });
         }
 
