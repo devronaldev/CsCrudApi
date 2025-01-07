@@ -195,7 +195,7 @@ namespace CsCrudApi.Controllers
             return Ok(new
             {
                 // ftPerfil = user.ftPerfil
-                User = userFiltered,
+                EntidadePost = userFiltered,
                 Post = fullPost
             });
         }
