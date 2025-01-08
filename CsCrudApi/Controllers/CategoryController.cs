@@ -3,6 +3,7 @@ using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.UserRelated.CollegeRelated;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 namespace CsCrudApi.Controllers
 {
@@ -52,6 +53,62 @@ namespace CsCrudApi.Controllers
                 });
             }
             return Ok(c);
+        }
+
+        [HttpGet("recentes/{idUser}")]
+        public async Task<ActionResult<dynamic>> Recent(int idUser)
+        {
+            if (idUser == 0)
+            {
+                BadRequest(new
+                {
+                    Message = "Usuário não especificado."
+                });
+            }
+
+            List<int> categoriesIds = new List<int>();
+
+            var posts = await _context
+                .Posts
+                .Where(p => p.UserId == idUser)
+                .OrderByDescending(p => p.PostDate)
+                .ToListAsync();
+
+            foreach (var post in posts)
+            {
+                var postCategories = await GetCategories(post.Guid);
+                if (postCategories != null)
+                {
+                    categoriesIds.AddRange(postCategories);
+                }
+            }
+
+            categoriesIds = categoriesIds.Distinct().ToList();
+
+            var categories = await _context
+                .Categories
+                .Where(c => categoriesIds.Contains(c.Id))
+                .ToListAsync();
+
+            return Ok(categories);
+        }
+
+        [NonAction]
+        public async Task<List<int>> GetCategories(string guid)
+        {
+            if (guid.IsNullOrEmpty())
+            {
+                return null;
+            }
+
+            var phc = await _context.PostHasCategories.Where(p => p.PostGUID == guid).ToListAsync();
+
+            List<int> dcCategories = new List<int>();
+            foreach (var category in phc)
+            {
+                dcCategories.Add(category.CategoryID);
+            }
+            return dcCategories;
         }
 
         /*

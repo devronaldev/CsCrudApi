@@ -22,7 +22,7 @@ namespace CsCrudApi.Controllers
         public async Task<ActionResult<dynamic>> CreatePost([FromBody] PostRequest request, [FromHeader] string token)
         {
             var post = request.Post;
-            var categories = request.Categories;            
+            var categories = request.Categories;
 
             if (token == null)
             {
@@ -258,23 +258,23 @@ namespace CsCrudApi.Controllers
                 return StatusCode(500, new
                 {
                     Message = $"Erro inesperado. Confira detalhes: {ex.Message}."
-                }); 
+                });
             }
         }
 
         [HttpGet("user/{userId}")]
         public async Task<List<PostRequest>> GetUserPosts([FromRoute] int userId, [FromQuery] int pageNumber, int pageSize)
         {
-            var posts = await PaginatePosts(_context.Posts.AsQueryable(), 
-                pageNumber, 
-                pageSize, 
+            var posts = await PaginatePosts(_context.Posts.AsQueryable(),
+                pageNumber,
+                pageSize,
                 p => p.Where(p => p.UserId == userId)
                 .OrderByDescending(p => p.PostDate));
 
             posts = await CountLikesAsync(posts);
 
             var listPosts = new List<PostRequest>();
-            foreach(Post p in posts)
+            foreach (Post p in posts)
             {
                 var request = new PostRequest
                 {
@@ -289,7 +289,7 @@ namespace CsCrudApi.Controllers
         [HttpPost("like/{postguid}")]
         public async Task<ActionResult<dynamic>> LikePost([FromRoute] string postguid, [FromHeader] string token)
         {
-            if(postguid.IsNullOrEmpty())
+            if (postguid.IsNullOrEmpty())
             {
                 return BadRequest(new
                 {
@@ -320,8 +320,8 @@ namespace CsCrudApi.Controllers
             if (like != null)
             {
                 like.UpdatedAt = DateTime.UtcNow;
-                
-                if(like.IsActive == false)
+
+                if (like.IsActive == false)
                 {
                     like.IsActive = true;
                 }
@@ -329,7 +329,7 @@ namespace CsCrudApi.Controllers
                 {
                     like.IsActive = false;
                 }
-                
+
                 await _context.SaveChangesAsync();
 
                 return Ok(new
@@ -340,7 +340,7 @@ namespace CsCrudApi.Controllers
 
             try
             {
-            
+
                 UserLikesPost newLike = new UserLikesPost
                 {
                     CreatedAt = DateTime.UtcNow,
@@ -363,11 +363,220 @@ namespace CsCrudApi.Controllers
             }
         }
 
+        [HttpPost("comentar")]
+        public async Task<ActionResult<object>> CreateCommentary([FromHeader] string token, [FromRoute] string postGUID, [FromBody] Commentary commentary)
+        {
+            if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(postGUID))
+            {
+                return BadRequest(new
+                {
+                    Message = "Verifique se todos os campos foram preenchidos."
+                });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new
+                {
+                    Message = "Erro na serialização do comentário."
+                });
+            }
+
+            try
+            {
+                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+                if (user == null)
+                {
+                    return BadRequest(new
+                    {
+                        Message = "Token Inválido ou usuário não encontrado."
+                    });
+                }
+
+                if (!await _context.Posts.AnyAsync(p => p.Guid == postGUID))
+                {
+                    return NotFound(new
+                    {
+                        Message = "Post não encontrado."
+                    });
+                }
+
+                commentary.CreatedAt = DateTime.UtcNow;
+                commentary.LastUpdatedAt = DateTime.UtcNow;
+                _context.Commentaries.Add(commentary);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro inesperado: {ex.Message}");
+            }
+
+            return Ok(commentary);
+        }
+
+        [HttpGet("comentarios")]
+        public async Task<ActionResult<object>> GetCommentByGUID([FromRoute] string guid)
+        {
+            if (string.IsNullOrEmpty(guid))
+            {
+                return BadRequest(new
+                {
+                    Message = "Por favor, informe um GUID."
+                });
+            }
+
+            try
+            {
+                var comments = await _context.Commentaries.Where(c => c.PostGUID == guid).ToListAsync();
+
+                if (comments == null)
+                {
+                    return NotFound(new
+                    {
+                        Message = "Não foram encontrados comentários."
+                    });
+                }
+
+                return Ok(comments);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro: {ex.Message}");
+            }
+        }
+
+        [HttpPut("comentar")]
+        public async Task<ActionResult<object>> UpdateCommentary([FromHeader] string token, [FromRoute] string postGUID, [FromBody] Commentary updatedCommentary)
+        {
+            if (string.IsNullOrEmpty(postGUID))
+            {
+                return BadRequest(new
+                {
+                    Message = "Verifique se todos os campos foram preenchidos."
+                });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new
+                {
+                    Message = "Erro na serialização do comentário."
+                });
+            }
+
+            if (string.IsNullOrEmpty(updatedCommentary.Text) || updatedCommentary.Text.Length < 3)
+            {
+                return BadRequest(new
+                {
+                    Message = "O comentário precisa ter texto igual ou superior a 3 letras."
+                });
+            }
+
+            try
+            {
+                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+                if (user == null)
+                {
+                    return BadRequest(new
+                    {
+                        Message = "Token Inválido ou usuário não encontrado."
+                    });
+                }
+
+                if (!await _context.Posts.AnyAsync(p => p.Guid == postGUID))
+                {
+                    return NotFound(new
+                    {
+                        Message = "Post não encontrado."
+                    });
+                }
+
+                var savedCommentary = await _context.Commentaries.FirstOrDefaultAsync(sc => sc.Id == updatedCommentary.Id);
+
+                if (savedCommentary == null)
+                {
+                    return NotFound(new
+                    {
+                        Message = "Comentário não encontrado."
+                    });
+                }
+
+                if (savedCommentary.UserId != user.UserId)
+                {
+                    return Forbid();
+                }
+
+                savedCommentary.Text = updatedCommentary.Text;
+                savedCommentary.LastUpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return Ok(savedCommentary);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro: {ex.Message}");
+            }
+        }
+
+        [HttpDelete("comentario")]
+        public async Task<ActionResult<dynamic>> DeleteCommentary([FromHeader]string token, int commentaryId)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                return BadRequest(new
+                {
+                    Message = "O token não pode ser vazio."
+                });
+            }
+
+            if(commentaryId == 0)
+            {
+                return BadRequest(new
+                {
+                    Message = "O id precisa estar preenchido."
+                });
+            }
+
+            try
+            {
+                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+                if (user == null)
+                {
+                    return BadRequest(new
+                    {
+                        Message = "Token Inválido ou usuário não encontrado."
+                    });
+                }
+
+                var commentary = await _context.Commentaries.FirstOrDefaultAsync(c => c.Id == commentaryId);
+                if (commentary == null)
+                {
+                    return NotFound(new
+                    {
+                        Message = "Comentário não encontrado."
+                    });
+                }
+
+                if (commentary.UserId != user.UserId)
+                {
+                    return Forbid();
+                }
+
+                _context.Commentaries.Remove(commentary);
+                await _context.SaveChangesAsync();
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro: {ex.Message}");
+            }
+        }
+
+        [NonAction]
         public static async Task<List<Post>> PaginatePosts(IQueryable<Post> query, int pageNumber, int pageSize, Func<IQueryable<Post>, IQueryable<Post>>? filter = null)
         {
             var items = await query.Skip((pageNumber - 1) * pageSize)
-                                   .Take(pageSize)
-                                   .ToListAsync();
+                                    .Take(pageSize)
+                                    .ToListAsync();
 
             return items;
         }

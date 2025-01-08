@@ -27,10 +27,10 @@ namespace CsCrudApi.Controllers
             {
                 return NotFound("Usuário não encontrado ou inexistente.");
             }
-            
+
             var cidade = await _context.Cidades.FirstOrDefaultAsync(c => c.IdCidade == user.CdCidade);
 
-            if (cidade == null) 
+            if (cidade == null)
             {
                 return NotFound("Usuário com cidade não cadastrada ou cadastrado incorretamente.");
             }
@@ -151,7 +151,7 @@ namespace CsCrudApi.Controllers
             try
             {
                 //Validar e-mails
-                if (string.IsNullOrEmpty(request.Email)) 
+                if (string.IsNullOrEmpty(request.Email))
                 {
                     return BadRequest("Erro: E-mail vazio");
                 }
@@ -175,7 +175,7 @@ namespace CsCrudApi.Controllers
                     //NÃO ACREDITO QUE VOU FAZER ISSO
                     return Conflict("Erro: Novo e-mail não pode ser igual ao anterior");
                 }
-    
+
                 await EmailServices.ChangeEmailAdvice(user, DateTime.Now, request.Email);
 
                 var emailVerification = new EmailVerification
@@ -195,7 +195,7 @@ namespace CsCrudApi.Controllers
                 await EmailServices.ChangeEmailVerification(emailVerification);
                 return Ok("Envio de e-mail de verificação realizado com sucesso.");
             }
-            catch (Exception ex) 
+            catch (Exception ex)
             {
                 return BadRequest($"Erro: {ex.Message}");
             }
@@ -211,7 +211,7 @@ namespace CsCrudApi.Controllers
             {
                 return NotFound("Erro: Token inválido ou expirado");
             }
-            if (emailVerification.ExpiresAt < DateTime.Now) 
+            if (emailVerification.ExpiresAt < DateTime.Now)
             {
                 return StatusCode(410, "Erro: A requisição de troca de e-mail expirou.");
             }
@@ -236,6 +236,94 @@ namespace CsCrudApi.Controllers
 
             await _context.SaveChangesAsync();
             return Ok();
+        }
+
+        [HttpPost("seguir")]
+        public async Task<ActionResult<dynamic>> Follow([FromHeader] string token, [FromRoute] int userId)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                return BadRequest(new
+                {
+                    Message = "O token não pode estar vazio."
+                });
+            }
+
+            try
+            {
+                // Validação do token e obtenção do usuário autenticado
+                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+                if (user == null)
+                {
+                    return NotFound(new
+                    {
+                        Message = "Usuário não encontrado."
+                    });
+                }
+
+                if (user.UserId == userId)
+                {
+                    return Conflict(new
+                    {
+                        Message = "O usuário não pode seguir a si mesmo."
+                    });
+                }
+
+                if (!await _context.Users.AnyAsync(u => u.UserId == userId))
+                {
+                    return NotFound(new
+                    {
+                        Message = "Usuário a ser seguido não existe."
+                    });
+                }
+
+                // Busca por uma relação existente
+                var follow = await _context.UsersFollowing.SingleOrDefaultAsync(f =>
+                    f.CdFollower == user.UserId && f.CdFollowed == userId);
+
+                if (follow != null)
+                {
+                    follow.Status = !follow.Status;
+                    follow.LastUpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+
+                    return Ok(new
+                    {
+                        Message = follow.Status
+                            ? "Usuário seguido com sucesso."
+                            : "Você deixou de seguir o usuário.",
+                        Data = follow
+                    });
+                }
+
+                // Cria uma nova relação se não existir
+                var action = new UserFollowingUser
+                {
+                    CdFollowed = userId,
+                    CdFollower = user.UserId,
+                    Status = true,
+                    CreatedAt = DateTime.UtcNow,
+                    LastUpdatedAt = DateTime.UtcNow
+                };
+
+                _context.UsersFollowing.Add(action);
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    Message = "Usuário seguido com sucesso.",
+                    Data = action
+                });
+            }
+            catch (Exception ex)
+            {
+                // Mensagem genérica para segurança em produção
+                return StatusCode(500, new
+                {
+                    Message = "Ocorreu um erro interno. Tente novamente mais tarde.",
+                    Details = ex.Message
+                });
+            }
         }
 
         protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);

@@ -38,6 +38,8 @@ namespace CsCrudApi.Models
 
         public DbSet<PostHasCategory> PostHasCategories { get; set; }
 
+        public DbSet<Commentary> Commentaries { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Definir a chave composta
@@ -98,6 +100,32 @@ namespace CsCrudApi.Models
 
             modelBuilder.Entity<PostHasCategory>()
                 .HasKey(phc => new { phc.PostGUID, phc.CategoryID });
+
+            modelBuilder.Entity<Commentary>()
+                .HasKey(c => c.Id);
+
+            modelBuilder.Entity<Commentary>()
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(c => c.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Commentary>()
+                .HasOne<Post>()
+                .WithMany()
+                .HasForeignKey(c => c.PostGUID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Commentary>()
+                .HasOne<Commentary>()
+                .WithMany()
+                .HasForeignKey(c => c.ParentCommentaryId) 
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Commentary>()
+                .Property(c => c.Text)
+                .IsRequired()
+                .HasMaxLength(255);
 
             base.OnModelCreating(modelBuilder);
         }

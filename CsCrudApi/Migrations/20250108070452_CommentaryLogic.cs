@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace CsCrudApi.Migrations
 {
     /// <inheritdoc />
-    public partial class CursoAdded : Migration
+    public partial class CommentaryLogic : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -200,7 +200,10 @@ namespace CsCrudApi.Migrations
                 columns: table => new
                 {
                     cd_usuario_seguidor = table.Column<int>(type: "int", nullable: false),
-                    cd_usuario_seguido = table.Column<int>(type: "int", nullable: false)
+                    cd_usuario_seguido = table.Column<int>(type: "int", nullable: false),
+                    seguido_em = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    ultima_atualizacao = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    status = table.Column<bool>(type: "tinyint(1)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -217,6 +220,67 @@ namespace CsCrudApi.Migrations
                         principalTable: "usuario",
                         principalColumn: "id_usuario",
                         onDelete: ReferentialAction.Restrict);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "comentario",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    cd_user = table.Column<int>(type: "int", nullable: false),
+                    UserId1 = table.Column<int>(type: "int", nullable: false),
+                    cd_post = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    PostGuid = table.Column<string>(type: "varchar(32)", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    cd_comentario_pai = table.Column<int>(type: "int", nullable: true),
+                    ParentCommentaryId1 = table.Column<int>(type: "int", nullable: false),
+                    texto = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    criado_em = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    atualizado_em = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_comentario", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_comentario_comentario_ParentCommentaryId1",
+                        column: x => x.ParentCommentaryId1,
+                        principalTable: "comentario",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_comentario_comentario_cd_comentario_pai",
+                        column: x => x.cd_comentario_pai,
+                        principalTable: "comentario",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_comentario_post_PostGuid",
+                        column: x => x.PostGuid,
+                        principalTable: "post",
+                        principalColumn: "guid",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_comentario_post_cd_post",
+                        column: x => x.cd_post,
+                        principalTable: "post",
+                        principalColumn: "guid",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_comentario_usuario_UserId1",
+                        column: x => x.UserId1,
+                        principalTable: "usuario",
+                        principalColumn: "id_usuario",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_comentario_usuario_cd_user",
+                        column: x => x.cd_user,
+                        principalTable: "usuario",
+                        principalColumn: "id_usuario",
+                        onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -276,6 +340,36 @@ namespace CsCrudApi.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateIndex(
+                name: "IX_comentario_cd_comentario_pai",
+                table: "comentario",
+                column: "cd_comentario_pai");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_comentario_cd_post",
+                table: "comentario",
+                column: "cd_post");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_comentario_cd_user",
+                table: "comentario",
+                column: "cd_user");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_comentario_ParentCommentaryId1",
+                table: "comentario",
+                column: "ParentCommentaryId1");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_comentario_PostGuid",
+                table: "comentario",
+                column: "PostGuid");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_comentario_UserId1",
+                table: "comentario",
+                column: "UserId1");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_post_id_usuario",
                 table: "post",
                 column: "id_usuario");
@@ -310,6 +404,9 @@ namespace CsCrudApi.Migrations
 
             migrationBuilder.DropTable(
                 name: "cidade");
+
+            migrationBuilder.DropTable(
+                name: "comentario");
 
             migrationBuilder.DropTable(
                 name: "curso");

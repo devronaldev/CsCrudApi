@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CsCrudApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250104235944_CursoAdded")]
-    partial class CursoAdded
+    [Migration("20250108070452_CommentaryLogic")]
+    partial class CommentaryLogic
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -49,6 +49,70 @@ namespace CsCrudApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("categorias", (string)null);
+                });
+
+            modelBuilder.Entity("CsCrudApi.Models.PostRelated.Commentary", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("criado_em");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("atualizado_em");
+
+                    b.Property<int?>("ParentCommentaryId")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_comentario_pai");
+
+                    b.Property<int>("ParentCommentaryId1")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PostGUID")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)")
+                        .HasColumnName("cd_post");
+
+                    b.Property<string>("PostGuid")
+                        .IsRequired()
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("texto");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_user");
+
+                    b.Property<int>("UserId1")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentCommentaryId");
+
+                    b.HasIndex("ParentCommentaryId1");
+
+                    b.HasIndex("PostGUID");
+
+                    b.HasIndex("PostGuid");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId1");
+
+                    b.ToTable("comentario");
                 });
 
             modelBuilder.Entity("CsCrudApi.Models.PostRelated.Post", b =>
@@ -311,6 +375,18 @@ namespace CsCrudApi.Migrations
                         .HasColumnType("int")
                         .HasColumnName("cd_usuario_seguido");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("seguido_em");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("ultima_atualizacao");
+
+                    b.Property<bool>("Status")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("status");
+
                     b.HasKey("CdFollower", "CdFollowed");
 
                     b.HasIndex("CdFollowed");
@@ -390,6 +466,50 @@ namespace CsCrudApi.Migrations
                     b.ToTable("usuario");
                 });
 
+            modelBuilder.Entity("CsCrudApi.Models.PostRelated.Commentary", b =>
+                {
+                    b.HasOne("CsCrudApi.Models.PostRelated.Commentary", null)
+                        .WithMany()
+                        .HasForeignKey("ParentCommentaryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CsCrudApi.Models.PostRelated.Commentary", "ParentCommentary")
+                        .WithMany("Replies")
+                        .HasForeignKey("ParentCommentaryId1")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CsCrudApi.Models.PostRelated.Post", null)
+                        .WithMany()
+                        .HasForeignKey("PostGUID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CsCrudApi.Models.PostRelated.Post", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostGuid")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CsCrudApi.Models.UserRelated.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CsCrudApi.Models.UserRelated.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId1")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ParentCommentary");
+
+                    b.Navigation("Post");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CsCrudApi.Models.PostRelated.Post", b =>
                 {
                     b.HasOne("CsCrudApi.Models.UserRelated.User", null)
@@ -442,6 +562,11 @@ namespace CsCrudApi.Migrations
                         .HasForeignKey("CdFollower")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CsCrudApi.Models.PostRelated.Commentary", b =>
+                {
+                    b.Navigation("Replies");
                 });
 #pragma warning restore 612, 618
         }

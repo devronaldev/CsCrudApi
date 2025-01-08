@@ -15,5 +15,17 @@ namespace CsCrudApi.Models.UserRelated.Request
         [Required]
         [Column("cd_usuario_seguido")]
         public int CdFollowed { get; set; }
+
+        [Required]
+        [Column("seguido_em")]
+        public DateTime CreatedAt { get; set; }
+
+        [Required]
+        [Column("ultima_atualizacao")]
+        public DateTime LastUpdatedAt { get; set; }
+
+        [Required]
+        [Column("status")]
+        public bool Status { get; set; }
     }
 }
