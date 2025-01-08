@@ -46,7 +46,7 @@ namespace CsCrudApi.Controllers
 
             int following = await GetFollowing(user.UserId);
 
-            PostController postController = new PostController(_context);
+            PostController postController = new(_context);
 
             return new
             {
@@ -228,9 +228,7 @@ namespace CsCrudApi.Controllers
                 return NotFound("Erro: Usuário não encontrado");
             }
 
-            string previousEmail = user.Email;
-            user.Email = emailVerification.NewEmail;
-            emailVerification.NewEmail = previousEmail;
+            (emailVerification.NewEmail, user.Email) = (user.Email, emailVerification.NewEmail);
             emailVerification.IsVerified = true;
             emailVerification.ExpiresAt = DateTime.Now.AddMonths(1);
 
@@ -325,6 +323,57 @@ namespace CsCrudApi.Controllers
                 });
             }
         }
+
+        [HttpGet("buscar")]
+        public async Task<ActionResult<List<object>>> SearchUsersByName([FromQuery] string namePart, int pageNumber, int pageSize)
+        {
+            if (string.IsNullOrEmpty(namePart))
+            {
+                return BadRequest(new
+                {
+                    Message = "O campo de busca não pode estar vazio."
+                });
+            }
+
+            if (pageNumber < 1)
+            {
+                pageNumber = 1;
+            }
+
+            if (pageSize < 1)
+            {
+                pageSize = 1;
+            }
+
+            try
+            {
+                var users = await _context.Users
+                    .Where(u => EF.Functions.Like(u.NmSocial, $"%{namePart}%"))
+                    .Select(u => new
+                    {
+                        Id = u.UserId,
+                        Nome = u.NmSocial,
+                    })
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                if (users.Count == 0)
+                {
+                    return NotFound(new
+                    {
+                        Message = "Nenhum usuário encontrado."
+                    });
+                }
+
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro: {ex.Message}");
+            }
+        }
+
 
         protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);
 

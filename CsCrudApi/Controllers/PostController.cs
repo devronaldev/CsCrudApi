@@ -1,13 +1,12 @@
 ﻿using CsCrudApi.Models;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.PostRelated.Requests;
+using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Security.Claims;
 
 namespace CsCrudApi.Controllers
 {
@@ -49,7 +48,7 @@ namespace CsCrudApi.Controllers
             try
             {
                 //Verificações de usuário
-                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
+                User? user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
                 if (user == null)
                 {
                     return BadRequest(new
@@ -262,6 +261,116 @@ namespace CsCrudApi.Controllers
             }
         }
 
+        [HttpGet("buscar")]
+        public async Task<ActionResult<List<object>>> SearchPostByTitle([FromQuery] string titlePart, int pageNumber, int pageSize)
+        {
+            if (string.IsNullOrEmpty(titlePart))
+            {
+                return BadRequest(new
+                {
+                    Message = "O campo de busca não pode estar vazio."
+                });
+            }
+
+            pageSize = pageSize > 20 ? 20 : (pageSize < 1 ? 10 : pageSize);
+            pageNumber = pageNumber < 1 ? 1 : pageNumber;
+
+            try
+            {
+                var posts = await _context.Posts
+                    .Where(p => EF.Functions.Like(p.DcTitulo, $"%{titlePart}%"))
+                    .OrderByDescending(p => p.PostDate)
+                    .Select(p => new
+                    {
+                        p.Guid,
+                        p.UserId,
+                        p.AreaId,
+                        p.Type,
+                        p.QuantityLikes,
+                    })
+                    .Skip((pageNumber - 1)* pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                if (posts.Count == 0)
+                {
+                    return NotFound(new
+                    {
+                        Message = "Nenhum post encontrado."
+                    });
+                }
+
+                return Ok(posts);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro: {ex.Message}");
+            }
+        }
+
+        [HttpGet("buscar/{categoryId}")]
+        public async Task<ActionResult<List<object>>> SearchPostByCategory([FromRoute] int categoryId, [FromQuery] int pageNumber, int pageSize)
+        {
+            if (categoryId == 0)
+            {
+                return BadRequest(new
+                {
+                    Message = "O campo de busca não pode estar vazio."
+                });
+            }
+
+            pageSize = pageSize > 20 ? 20 : (pageSize < 1 ? 10 : pageSize);
+            pageNumber = pageNumber < 1 ? 1 : pageNumber;
+
+            try
+            {
+                var postGuids = await _context.PostHasCategories
+                    .Where(a => a.CategoryID == categoryId)
+                    .Select(a => a.PostGUID)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (postGuids.Count == 0)
+                {
+                    return NotFound(new
+                    {
+                        Message = "Nenhum post com a categoria encontrado."
+                    });
+                }
+
+                var posts = await _context.Posts
+                    .Where(p => postGuids.Contains(p.Guid))
+                    .OrderByDescending(p => p.PostDate) // Ordenar por data decrescente
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(p => new
+                    {
+                        p.Guid,
+                        p.UserId,
+                        p.AreaId,
+                        p.Type,
+                        p.QuantityLikes,
+                        p.PostDate,
+                        p.DcTitulo
+                    })
+                    .ToListAsync();
+
+                if (posts.Count == 0)
+                {
+                    return NotFound(new
+                    {
+                        Message = "Nenhum post encontrado na página especificada."
+                    });
+                }
+
+                return Ok(posts);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro: {ex.Message}");
+            }
+        }
+
         [HttpGet("user/{userId}")]
         public async Task<List<PostRequest>> GetUserPosts([FromRoute] int userId, [FromQuery] int pageNumber, int pageSize)
         {
@@ -341,7 +450,7 @@ namespace CsCrudApi.Controllers
             try
             {
 
-                UserLikesPost newLike = new UserLikesPost
+                UserLikesPost newLike = new()
                 {
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
@@ -600,7 +709,7 @@ namespace CsCrudApi.Controllers
         }
 
         [NonAction]
-        public async Task<List<int>> GetCategories(string guid)
+        public async Task<List<int>?> GetCategories(string guid)
         {
             if (guid.IsNullOrEmpty())
             {
@@ -609,7 +718,7 @@ namespace CsCrudApi.Controllers
 
             var phc = await _context.PostHasCategories.Where(p => p.PostGUID == guid).ToListAsync();
 
-            List<int> dcCategories = new List<int>();
+            List<int> dcCategories = [];
             foreach (var category in phc)
             {
                 dcCategories.Add(category.CategoryID);

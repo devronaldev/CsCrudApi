@@ -66,7 +66,7 @@ namespace CsCrudApi.Controllers
                 });
             }
 
-            List<int> categoriesIds = new List<int>();
+            List<int> categoriesIds = [];
 
             var posts = await _context
                 .Posts
@@ -94,7 +94,7 @@ namespace CsCrudApi.Controllers
         }
 
         [NonAction]
-        public async Task<List<int>> GetCategories(string guid)
+        public async Task<List<int>?> GetCategories(string guid)
         {
             if (guid.IsNullOrEmpty())
             {
@@ -103,7 +103,7 @@ namespace CsCrudApi.Controllers
 
             var phc = await _context.PostHasCategories.Where(p => p.PostGUID == guid).ToListAsync();
 
-            List<int> dcCategories = new List<int>();
+            List<int> dcCategories = [];
             foreach (var category in phc)
             {
                 dcCategories.Add(category.CategoryID);
