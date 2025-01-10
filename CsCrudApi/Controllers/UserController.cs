@@ -348,7 +348,7 @@ namespace CsCrudApi.Controllers
             try
             {
                 var users = await _context.Users
-                    .Where(u => EF.Functions.Like(u.NmSocial, $"%{namePart}%"))
+                    .Where(u => EF.Functions.Like(u.NmSocial, $"%{namePart}%") && u.IsEmailVerified == true)
                     .Select(u => new
                     {
                         Id = u.UserId,

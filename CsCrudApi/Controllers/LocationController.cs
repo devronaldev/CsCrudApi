@@ -69,5 +69,36 @@ namespace CsCrudApi.Controllers
 
             return Ok(list);
         }
+
+        [HttpGet("alunos-por-campus/{campusId}")]
+        public async Task<ActionResult<List<object>>> GetUserByCampi([FromRoute] int campusId)
+        {
+            if(campusId == 0)
+            {
+                return BadRequest(new {
+                    Message = "O id não pode ser 0 ou vazio."
+                });
+            }
+
+            var users = await _context.Users
+            .Where(u => u.CdCampus == campusId && u.IsEmailVerified == true)
+            .Select(u => new{
+                u.UserId,
+                u.NmSocial,
+                u.CdCidade,
+                u.Curso,
+                u.TipoInteresse
+            })
+            .ToListAsync();
+
+            if(users == null)
+            {
+                return BadRequest(new {
+                    Message = "Não foram encontrados alunos dessa instituição."
+                });
+            }
+
+            return Ok(users);
+        }
     }
 }
