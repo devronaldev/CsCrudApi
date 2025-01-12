@@ -258,7 +258,7 @@ namespace CsCrudApi.Controllers
         }
 
         [HttpDelete("delete/{guid}")]
-        public async Task<ActionResult<dynamic>> DeletePost([FromRoute] string guid, [FromBody] string token)
+        public async Task<ActionResult<dynamic>> DeletePost([FromRoute] string guid, [FromHeader] string token)
         {
             if (guid == null || guid.Length != 32)
             {
