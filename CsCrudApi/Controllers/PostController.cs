@@ -433,11 +433,12 @@ namespace CsCrudApi.Controllers
         [HttpGet("user/{userId}")]
         public async Task<List<PostRequest>> GetUserPosts([FromRoute] int userId, [FromQuery] int pageNumber, int pageSize)
         {
-            var posts = await PaginatePosts(_context.Posts.AsQueryable(),
-                pageNumber,
-                pageSize,
-                p => p.Where(p => p.UserId == userId)
-                .OrderByDescending(p => p.PostDate));
+            var posts = await _context.Posts
+                .Where(p => p.UserId == userId)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .OrderByDescending(p => p.PostDate)
+                .ToListAsync();
 
             posts = await CountLikesAsync(posts);
 
@@ -544,7 +545,7 @@ namespace CsCrudApi.Controllers
         [NonAction]
         public async Task<int> CountLikesAsync(string postGuid)
         {
-            int count = await _context.Posts.Where(p => p.Guid == postGuid).CountAsync();
+            int count = await _context.PostLikes.Where(l => l.PostGuid == postGuid).CountAsync();
             return count;
         }
 
