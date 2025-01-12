@@ -68,7 +68,7 @@ namespace CsCrudApi.Models.UserRelated
 
         [Required]
         [Column("url_foto_perfil")]
-        public string ProfilePictureUrl { get; set; }
+        public string? ProfilePictureUrl { get; set; }
     }
 
     // Enum for TpPreferencia

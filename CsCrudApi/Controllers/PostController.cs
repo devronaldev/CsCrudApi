@@ -146,6 +146,43 @@ namespace CsCrudApi.Controllers
             }
         }
 
+        [HttpGet("feed")]
+        public async Task<ActionResult<dynamic>> Feed([FromHeader] string token, [FromQuery] int pageNumber, int pageSize)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                return BadRequest(new
+                {
+                    message = "O Token não pode estar vazio."
+                });
+            }
+
+            pageSize = pageSize > 100 ? 100 : (pageSize < 5 ? 5 : pageSize);
+            pageNumber = pageNumber < 1 ? 1 : pageNumber;
+
+            try
+            {
+                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+                if (user == null)
+                {
+                    return NotFound(new
+                    {
+                        message = "O usuário não foi encontrado."
+                    });
+                }
+
+                var post = await _context.Posts
+                    .Skip((pageNumber - 1) * pageSize)
+                    .ToListAsync();
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Um erro inesperado aconteceu." });
+            }
+        }
+
         [HttpGet("{guid}")]
         public async Task<ActionResult<dynamic>> ShowPost([FromRoute] string guid)
         {

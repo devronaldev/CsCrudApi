@@ -15,11 +15,15 @@ namespace CsCrudApi.Controllers
 
         [HttpGet("listar-cidades")]
         [AllowAnonymous]
-        public async Task<ActionResult<dynamic>> ListCities() => _context.Cidades.ToList();
+        public async Task<ActionResult<dynamic>> ListCities() => await _context.Cidades.ToListAsync();
 
         [AllowAnonymous]
         [HttpGet("listar-campi")]
-        public async Task<ActionResult<dynamic>> ListCampi() => _context.Campi.ToList();
+        public async Task<ActionResult<dynamic>> ListCampi() => await _context.Campi.ToListAsync();
+
+        [AllowAnonymous]
+        [HttpGet("areas")]
+        public async Task<ActionResult<dynamic>> ListAreas() => await _context.Areas.ToListAsync();
 
         [AllowAnonymous]
         [HttpGet("cidade/{id}")]
