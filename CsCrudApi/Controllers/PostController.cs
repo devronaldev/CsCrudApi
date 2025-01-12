@@ -157,12 +157,16 @@ namespace CsCrudApi.Controllers
                 });
             }
 
+            // Ajustar o tamanho da página
             pageSize = pageSize > 100 ? 100 : (pageSize < 5 ? 5 : pageSize);
             pageNumber = pageNumber < 1 ? 1 : pageNumber;
 
             try
             {
-                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+                // Validar o token e obter o usuário associado
+                var tokenData = TokenServices.ValidateJwtToken(token);
+                var user = await TokenServices.GetTokenUserAsync(tokenData, _context);
+
                 if (user == null)
                 {
                     return NotFound(new
@@ -171,19 +175,35 @@ namespace CsCrudApi.Controllers
                     });
                 }
 
+                var followingUserIds = await _context.UsersFollowing
+                    .Where(f => f.CdFollower == user.UserId)
+                    .Select(f => f.CdFollowed)
+                    .ToListAsync();
+
+                var usersRelated = await _context.Users
+                    .Where(u => u.CdCidade == user.CdCidade || u.CdCampus == user.CdCampus || u.CursoId == user.CursoId)
+                    .Select(u => u.UserId)
+                    .ToListAsync();
+
                 var posts = await _context.Posts
-                    .OrderByDescending(p => p.PostDate)
-                    .Where(p => )
-                    .Skip((pageNumber - 1) * pageSize)
+                    .Where(p =>
+                        followingUserIds.Contains(p.UserId) || // Usuários que o atual segue
+                        usersRelated.Contains(p.UserId)) // Mesmo curso
+                    .OrderByDescending(p => p.PostDate) // Ordenar por data de postagem (mais recente primeiro)
+                    .Skip((pageNumber - 1) * pageSize) // Paginação
+                    .Take(pageSize) // Limitar pelo tamanho da página
                     .ToListAsync();
 
                 return Ok(posts);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Um erro inesperado aconteceu." });
+                // Registrar o erro e retornar mensagem amigável
+                Console.Error.WriteLine($"Erro ao gerar feed: {ex}");
+                return StatusCode(500, new { message = "Um erro inesperado aconteceu.", error = ex.Message });
             }
         }
+
 
         [HttpGet("{guid}")]
         public async Task<ActionResult<dynamic>> ShowPost([FromRoute] string guid)
