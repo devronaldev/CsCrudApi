@@ -336,7 +336,7 @@ namespace CsCrudApi.Controllers
         [Produces("application/json")]
         [Consumes("multipart/form-data")]
         [HttpPost("foto-perfil")]
-        public async Task<ActionResult> UpdateProfilePicture([FromForm] string profilePicture, [FromHeader] string token)
+        public async Task<ActionResult> UpdateProfilePicture([FromForm] IFormFile profilePicture, [FromHeader] string token)
         {
             if(profilePicture == null || profilePicture.Length == 0)
             {
@@ -348,13 +348,11 @@ namespace CsCrudApi.Controllers
                 return BadRequest(new { message = "O token não pode estar vazio." });
             }
 
-            /*
             if (!FileServices.AllowedProfileContentTypes.Contains(profilePicture.ContentType))
             {
                 Console.WriteLine($"O tipo de arquivo não é suportável. Verifique os detalhes: {profilePicture.ContentType} - {profilePicture.FileName}");
                 return BadRequest(new { message = "Formato de arquivo não suportado." });
             }
-            */
 
             try
             {
@@ -367,7 +365,6 @@ namespace CsCrudApi.Controllers
 
                 // Enviar arquivo para S3
                 var fileName = $"profilePictures/{TokenServices.GenerateGUIDString()}";
-                /*
                 using var stream = profilePicture.OpenReadStream();
                 var fileUrl = await _fileServices.UploadFileAsync(stream, fileName, profilePicture.ContentType);
                 
@@ -378,7 +375,6 @@ namespace CsCrudApi.Controllers
                 }
 
                 user.ProfilePictureUrl = fileUrl;
-                */
                 await _context.SaveChangesAsync();
 
                 return Ok("Foto de perfil alterado com sucesso");

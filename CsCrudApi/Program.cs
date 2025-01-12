@@ -14,10 +14,7 @@ Env.Load();
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.OperationFilter<FileUploadOperationFilter>();
-});
+builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton(provider =>
 {
