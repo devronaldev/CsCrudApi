@@ -165,7 +165,8 @@ namespace CsCrudApi.Controllers
                 CdCidade = model.CdCidade,
                 IsEmailVerified = false,
                 CursoId = model.CursoId,
-                StatusCourse = model.StatusCourse
+                StatusCourse = model.StatusCourse,
+                ProfilePictureUrl = model.ProfilePictureUrl
             };
 
             try

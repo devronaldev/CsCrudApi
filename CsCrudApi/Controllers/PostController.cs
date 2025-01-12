@@ -171,11 +171,13 @@ namespace CsCrudApi.Controllers
                     });
                 }
 
-                var post = await _context.Posts
+                var posts = await _context.Posts
+                    .OrderByDescending(p => p.PostDate)
+                    .Where(p => )
                     .Skip((pageNumber - 1) * pageSize)
                     .ToListAsync();
 
-                return Ok();
+                return Ok(posts);
             }
             catch (Exception ex)
             {

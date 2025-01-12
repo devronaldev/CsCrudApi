@@ -432,6 +432,12 @@ namespace CsCrudApi.Controllers
             }
         }
 
+        [NonAction]
+        protected async Task<bool> IsFollowed(int idUser, int userFeed)
+        {
+            return await _context.UsersFollowing.AnyAsync(uf => uf.CdFollower == idUser);
+        }
+
         protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);
 
         protected async Task<int> GetFollowing(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollower == idUser);
