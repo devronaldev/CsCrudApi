@@ -4,6 +4,7 @@ using CsCrudApi.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CsCrudApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250111084225_FirstFileTry")]
+    partial class FirstFileTry
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -65,6 +68,10 @@ namespace CsCrudApi.Migrations
                         .HasColumnType("datetime(6)")
                         .HasColumnName("atualizado_em");
 
+                    b.Property<int?>("ParentCommentaryId")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_comentario_pai");
+
                     b.Property<string>("PostGUID")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -82,6 +89,8 @@ namespace CsCrudApi.Migrations
                         .HasColumnName("cd_user");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ParentCommentaryId");
 
                     b.HasIndex("PostGUID");
 
@@ -448,6 +457,11 @@ namespace CsCrudApi.Migrations
 
             modelBuilder.Entity("CsCrudApi.Models.PostRelated.Commentary", b =>
                 {
+                    b.HasOne("CsCrudApi.Models.PostRelated.Commentary", null)
+                        .WithMany()
+                        .HasForeignKey("ParentCommentaryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("CsCrudApi.Models.PostRelated.Post", null)
                         .WithMany()
                         .HasForeignKey("PostGUID")

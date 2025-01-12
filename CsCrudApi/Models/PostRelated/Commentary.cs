@@ -21,9 +21,6 @@ namespace CsCrudApi.Models.PostRelated
         [MaxLength(32)]
         public string PostGUID { get; set; }
 
-        [Column("cd_comentario_pai")]
-        public int? ParentCommentaryId { get; set; } 
-
         [Required]
         [Column("texto")]
         [StringLength(255, MinimumLength = 3)]

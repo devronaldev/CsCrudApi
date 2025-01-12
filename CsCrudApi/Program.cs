@@ -4,13 +4,25 @@ using Microsoft.EntityFrameworkCore;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using DotNetEnv;
+using CsCrudApi.Services;
+using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.Filters;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 
 Env.Load();
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.OperationFilter<FileUploadOperationFilter>();
+});
+
+builder.Services.AddSingleton(provider =>
+{
+    return new FileServices();
+});
 var key = Encoding.ASCII.GetBytes(Environment.GetEnvironmentVariable("SECRET"));
 builder.Services.AddAuthentication(options =>
 {

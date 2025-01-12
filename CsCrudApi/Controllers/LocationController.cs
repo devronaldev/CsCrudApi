@@ -11,7 +11,7 @@ namespace CsCrudApi.Controllers
     public class LocationController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        public LocationController(ApplicationDbContext context, IConfiguration configuration) => _context = context;
+        public LocationController(ApplicationDbContext context) => _context = context;
 
         [HttpGet("listar-cidades")]
         [AllowAnonymous]
@@ -86,7 +86,7 @@ namespace CsCrudApi.Controllers
                 u.UserId,
                 u.NmSocial,
                 u.CdCidade,
-                u.Curso,
+                u.CursoId,
                 u.TipoInteresse
             })
             .ToListAsync();

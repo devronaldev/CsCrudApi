@@ -117,12 +117,6 @@ namespace CsCrudApi.Models
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Commentary>()
-                .HasOne<Commentary>()
-                .WithMany()
-                .HasForeignKey(c => c.ParentCommentaryId) 
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<Commentary>()
                 .Property(c => c.Text)
                 .IsRequired()
                 .HasMaxLength(255);

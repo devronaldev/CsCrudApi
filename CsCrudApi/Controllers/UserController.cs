@@ -8,14 +8,22 @@ using System.Security.Claims;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.UserRelated.Request;
 using Microsoft.AspNetCore.Authorization;
+using System.Net.Mime;
 
 namespace CsCrudApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class UserController(ApplicationDbContext context) : ControllerBase
+    public class UserController : ControllerBase
     {
-        private readonly ApplicationDbContext _context = context;
+        private readonly ApplicationDbContext _context;
+        private readonly FileServices _fileServices;
+
+        public UserController(ApplicationDbContext context, FileServices fileServices)
+        {
+            _context = context;
+            _fileServices = fileServices;
+        }
 
         [HttpGet("perfil/{userId}")]
         [AllowAnonymous]
@@ -54,9 +62,9 @@ namespace CsCrudApi.Controllers
                 NmUsuario = user.NmSocial,
                 user.DtNasc,
                 user.Email,
-                //user.FtPerfil, 
+                user.ProfilePictureUrl,
                 TpPreferencia = user.TipoInteresse,
-                user.Curso,
+                user.CursoId,
                 user.GrauEscolaridade,
                 Seguidores = followers,
                 Seguindo = following,
@@ -324,6 +332,63 @@ namespace CsCrudApi.Controllers
             }
         }
 
+
+        [Produces("application/json")]
+        [Consumes("multipart/form-data")]
+        [HttpPost("foto-perfil")]
+        public async Task<ActionResult> UpdateProfilePicture([FromForm] string profilePicture, [FromHeader] string token)
+        {
+            if(profilePicture == null || profilePicture.Length == 0)
+            {
+                return BadRequest(new { message = "A foto de perfil é obrigatória." });
+            }
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return BadRequest(new { message = "O token não pode estar vazio." });
+            }
+
+            /*
+            if (!FileServices.AllowedProfileContentTypes.Contains(profilePicture.ContentType))
+            {
+                Console.WriteLine($"O tipo de arquivo não é suportável. Verifique os detalhes: {profilePicture.ContentType} - {profilePicture.FileName}");
+                return BadRequest(new { message = "Formato de arquivo não suportado." });
+            }
+            */
+
+            try
+            {
+                // Validação Token
+                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+                if (user == null)
+                {
+                    return NotFound("Token inválido/expirado ou usuário não encontrado.");
+                }
+
+                // Enviar arquivo para S3
+                var fileName = $"profilePictures/{TokenServices.GenerateGUIDString()}";
+                /*
+                using var stream = profilePicture.OpenReadStream();
+                var fileUrl = await _fileServices.UploadFileAsync(stream, fileName, profilePicture.ContentType);
+                
+
+                if (string.IsNullOrEmpty(fileUrl))
+                {
+                    return StatusCode(500, new { message = "Erro inesperado ao salvar o arquivo." });
+                }
+
+                user.ProfilePictureUrl = fileUrl;
+                */
+                await _context.SaveChangesAsync();
+
+                return Ok("Foto de perfil alterado com sucesso");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro inesperado. Detalhes: {ex.Message}");
+            }
+        }
+
         [HttpGet("buscar")]
         public async Task<ActionResult<List<object>>> SearchUsersByName([FromQuery] string namePart, int pageNumber, int pageSize)
         {
@@ -335,26 +400,19 @@ namespace CsCrudApi.Controllers
                 });
             }
 
-            if (pageNumber < 1)
-            {
-                pageNumber = 1;
-            }
-
-            if (pageSize < 1)
-            {
-                pageSize = 1;
-            }
+            pageSize = pageSize > 10 ? 10 : (pageSize < 1 ? 1 : pageSize);
+            pageNumber = pageNumber < 1 ? 1 : pageNumber;
 
             try
             {
                 var users = await _context.Users
-                    .Where(u => EF.Functions.Like(u.NmSocial, $"%{namePart}%") && u.IsEmailVerified == true)
+                    .Where(u => EF.Functions.Like(u.NmSocial, $"%{namePart}%")&& u.IsEmailVerified == true)
                     .Select(u => new
                     {
                         Id = u.UserId,
                         Nome = u.NmSocial,
                     })
-                    .Skip(pageNumber * pageSize)
+                    .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
@@ -373,7 +431,6 @@ namespace CsCrudApi.Controllers
                 return StatusCode(500, $"Erro: {ex.Message}");
             }
         }
-
 
         protected async Task<int> GetFollowers(int idUser) => await _context.UsersFollowing.CountAsync(u => u.CdFollowed == idUser);
 

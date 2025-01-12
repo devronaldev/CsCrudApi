@@ -15,9 +15,9 @@ namespace CsCrudApi.Controllers
         public CommentController(ApplicationDbContext context) => _context = context;
 
         [HttpPost]
-        public async Task<ActionResult<object>> CreateCommentary([FromHeader] string token, [FromRoute] string postGUID, [FromBody] Commentary commentary)
+        public async Task<ActionResult<object>> CreateCommentary([FromHeader] string token, [FromBody] Commentary commentary)
         {
-            if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(postGUID))
+            if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(commentary.PostGUID))
             {
                 return BadRequest(new
                 {
@@ -40,11 +40,13 @@ namespace CsCrudApi.Controllers
                 {
                     return BadRequest(new
                     {
-                        Message = "Token Inválido ou usuário não encontrado."
+                        message = "Token Inválido ou usuário não encontrado."
                     });
                 }
 
-                if (!await _context.Posts.AnyAsync(p => p.Guid == postGUID))
+                // Verifica se o Post existe
+                var post = await _context.Posts.FirstOrDefaultAsync(p => p.Guid == commentary.PostGUID);
+                if (post == null)
                 {
                     return NotFound(new
                     {
@@ -54,6 +56,7 @@ namespace CsCrudApi.Controllers
 
                 commentary.CreatedAt = DateTime.UtcNow;
                 commentary.LastUpdatedAt = DateTime.UtcNow;
+                commentary.UserId = user.UserId;
                 _context.Commentaries.Add(commentary);
                 await _context.SaveChangesAsync();
             }
@@ -66,7 +69,7 @@ namespace CsCrudApi.Controllers
         }
 
         [AllowAnonymous]
-        [HttpGet]
+        [HttpGet("{guid}")]
         public async Task<ActionResult<object>> GetCommentByGUID([FromRoute] string guid)
         {
             if (string.IsNullOrEmpty(guid))
@@ -98,9 +101,9 @@ namespace CsCrudApi.Controllers
         }
 
         [HttpPut]
-        public async Task<ActionResult<object>> UpdateCommentary([FromHeader] string token, [FromRoute] string postGUID, [FromBody] Commentary updatedCommentary)
+        public async Task<ActionResult<object>> UpdateCommentary([FromHeader] string token, [FromBody] Commentary updatedCommentary)
         {
-            if (string.IsNullOrEmpty(postGUID))
+            if (string.IsNullOrEmpty(updatedCommentary.PostGUID))
             {
                 return BadRequest(new
                 {
@@ -135,7 +138,7 @@ namespace CsCrudApi.Controllers
                     });
                 }
 
-                if (!await _context.Posts.AnyAsync(p => p.Guid == postGUID))
+                if (!await _context.Posts.AnyAsync(p => p.Guid == updatedCommentary.PostGUID))
                 {
                     return NotFound(new
                     {

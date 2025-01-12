@@ -17,7 +17,11 @@ namespace CsCrudApi.Controllers
     public class UserAuthController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        public UserAuthController(ApplicationDbContext context) => _context = context;
+        
+        public UserAuthController(ApplicationDbContext context, FileServices fileServices)
+        {
+            _context = context;
+        }
 
         [HttpPost("login")]
         [AllowAnonymous]
@@ -92,102 +96,97 @@ namespace CsCrudApi.Controllers
                 token, 
             };
         }
-        
+
         [HttpPost("cadastrar")]
         [AllowAnonymous]
-        public async Task<ActionResult<dynamic>> Register([FromBody] User model)
+        public async Task<ActionResult> Register([FromBody] User model)
         {
             if (model == null)
             {
-                return BadRequest(new { message = "O modelo do usuário não pode ser nulo." });
+                return BadRequest(new { message = "Os dados do usuário são obrigatórios." });
             }
 
-            model.Email = model.Email.Trim().ToLower();
+            // Normalizar e validar e-mail
+            model.Email = model.Email?.Trim().ToLower();
+            if (string.IsNullOrEmpty(model.Email) || model.Email.Length < 17)
+            {
+                return BadRequest(new { message = "E-mail inválido. Deve ter pelo menos 17 caracteres." });
+            }
 
+            // Verificar nome
+            if (string.IsNullOrEmpty(model.Name.Trim()))
+            {
+                return BadRequest(new
+                {
+                    message = "O nome não pode estar vazio."
+                });
+            }
+
+            // Verificar se o e-mail já está cadastrado
             var verification = await IsEmailExistent(model.Email);
             if (verification.Result is ConflictObjectResult)
             {
                 return Conflict(new { message = "O e-mail informado já está cadastrado." });
             }
-            if (string.IsNullOrEmpty(model.Email))
+
+            // Validar senha
+            var passwordRegex = new Regex(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?""{}|<>]).{8,}$");
+            if (string.IsNullOrEmpty(model.Password) || !passwordRegex.IsMatch(model.Password))
             {
-                return BadRequest(new
-                {
-                    message = "E-mail vazio ou nulo."
-                });
-            }
-            if (model.Email.Length < 17)
-            {
-                return StatusCode(406, new
-                {
-                    message = "E-mail precisa ter mais de 17 caracteres",
-                });
-            }
-            if (string.IsNullOrEmpty(model.Password))
-            {
-                return Unauthorized(new
-                {
-                    message = "Senha vazia ou nula."
-                });
-            }
-            var regex = new Regex(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?"":{}|<>])(?=.*[^a-zA-Z\d]).{8,}$");
-            if (!regex.IsMatch(model.Password))
-            {
-                return Unauthorized(new
-                {
-                    message = "A senha não contém os padrões básicos de segurança."
-                });
+                return BadRequest(new { message = "A senha não atende aos requisitos mínimos de segurança." });
             }
 
-            // Se incorreto define o valor do enum para o default
-            if (!Enum.IsDefined(typeof(ETipoInteresse), model.TipoInteresse))
-            {
-                model.TipoInteresse = ETipoInteresse.Orientado; 
-            }
-            if (!Enum.IsDefined(typeof(EGrauEscolaridade), model.GrauEscolaridade))
-            {
-                model.GrauEscolaridade = EGrauEscolaridade.Graduacao;
-            }
-            if (!Enum.IsDefined(typeof(EColor), model.TpColor))
-            {
-                model.TpColor = EColor.White; 
-            }
+            // Validar enums e atribuir valores padrão
+            model.TipoInteresse = Enum.TryParse(model.TipoInteresse.ToString(), out ETipoInteresse interesse)
+                ? interesse
+                : ETipoInteresse.Orientado;
+            model.GrauEscolaridade = Enum.TryParse(model.GrauEscolaridade.ToString(), out EGrauEscolaridade escolaridade)
+                ? escolaridade
+                : EGrauEscolaridade.Graduacao;
+            model.TpColor = Enum.TryParse(model.TpColor.ToString(), out EColor color)
+                ? color
+                : EColor.White;
 
-            var hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.Password);
-            if (string.IsNullOrEmpty(model.NmSocial))
-            {
-                model.NmSocial = model.Name;
-            }
+            // Configurar dados do usuário
+            model.NmSocial ??= model.Name?.Trim();
+            model.Password = BCrypt.Net.BCrypt.HashPassword(model.Password);
+
             var user = new User
             {
                 Email = model.Email,
-                Password = hashedPassword,
+                Password = model.Password,
                 CdCampus = model.CdCampus,
-                Name = model.Name.Trim(),
+                Name = model.Name?.Trim(),
                 DtNasc = model.DtNasc,
                 TipoInteresse = model.TipoInteresse,
                 GrauEscolaridade = model.GrauEscolaridade,
-                NmSocial = model.NmSocial.Trim(),
+                NmSocial = model.NmSocial?.Trim(),
                 TpColor = model.TpColor,
                 CdCidade = model.CdCidade,
                 IsEmailVerified = false,
-                Curso = model.Curso,
+                CursoId = model.CursoId,
                 StatusCourse = model.StatusCourse
             };
 
             try
             {
+                // Salvar usuário no banco de dados
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
+
+                // Enviar e-mail de verificação
                 await EmailServices.SendVerificationEmail(user);
-                return Ok(new { message = "Usuário registrado com sucesso!" });
+
+                return Ok(new { message = "Usuário registrado com sucesso!", userId = user.UserId });
             }
             catch (Exception ex)
             {
-                //SE HOUVER ERRO SÓ DEUS SABE.
+                // Logar o erro e retornar mensagem amigável
+                Console.Error.WriteLine($"Erro ao registrar usuário: {ex}");
                 return StatusCode(500, new { message = "Erro ao registrar usuário.", error = ex.Message });
             }
         }
+
 
         [HttpGet("email-existe")]
         [AllowAnonymous]
