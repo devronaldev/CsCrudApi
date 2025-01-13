@@ -41,6 +41,11 @@ namespace CsCrudApi.Controllers
                 });
             }
 
+            if(post.ExternalLink == null)
+            {
+                post.ExternalLink = string.Empty;
+            }
+
             post.QuantityLikes = 0;
             post.PostDate = DateTime.Now;
             post.Guid = TokenServices.GenerateGUIDString();
