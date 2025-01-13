@@ -4,8 +4,8 @@ namespace CsCrudApi.Models.PostRelated.Requests
 {
     public class FeedPost
     {
-        public PostRequest Post { get; set; }
-
-        public User User { get; set; }
+        public Post Post { get; set; }
+        public List<int> Categories { get; set; }
+        public object User { get; set; }
     }
 }

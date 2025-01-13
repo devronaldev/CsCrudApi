@@ -218,7 +218,8 @@ namespace CsCrudApi.Controllers
                 {
                     listPosts.Add(new FeedPost
                     {
-                        Post = post,
+                        Post = post.Post,
+                        Categories = post.Categories,
                         User = await GetUser(post.Post.UserId)
                     });
                 }
@@ -608,9 +609,19 @@ namespace CsCrudApi.Controllers
         }
 
         [NonAction]
-        public async Task<User> GetUser(int userId)
+        public async Task<object> GetUser(int userId)
         {
-            return await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+
+            return new
+            {
+                user.NmSocial,
+                user.TipoInteresse,
+                user.CdCampus,
+                user.UserId,
+                user.GrauEscolaridade,
+                user.ProfilePictureUrl,
+            };
         }
     }
 }
