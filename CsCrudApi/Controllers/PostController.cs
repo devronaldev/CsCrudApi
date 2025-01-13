@@ -194,7 +194,20 @@ namespace CsCrudApi.Controllers
                     .Take(pageSize) // Limitar pelo tamanho da página
                     .ToListAsync();
 
-                return Ok(posts);
+                posts = await CountLikesAsync(posts);
+
+                var listPosts = new List<PostRequest>();
+                foreach (Post p in posts)
+                {
+                    var request = new PostRequest
+                    {
+                        Post = p,
+                        Categories = await GetCategories(p.Guid)
+                    };
+                    listPosts.Add(request);
+                }
+
+                return Ok(listPosts);
             }
             catch (Exception ex)
             {
