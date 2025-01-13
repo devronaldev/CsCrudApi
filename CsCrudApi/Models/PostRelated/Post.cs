@@ -38,7 +38,7 @@ namespace CsCrudApi.Models.PostRelated
         public int AreaId { get; set; }
 
         [Column("link_externo")]
-        public string ExternalLink { get; set; }
+        public string? ExternalLink { get; set; }
     }
 
     public enum ETypePost
