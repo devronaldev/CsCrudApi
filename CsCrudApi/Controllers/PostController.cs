@@ -275,7 +275,8 @@ namespace CsCrudApi.Controllers
                 grauEscolaridade = user.GrauEscolaridade,
                 nmInstituicao = $"{campus.SgCampus} - {campus.CampusName}",
                 cursoId = user.CursoId,
-                tipoInteresse = user.TipoInteresse
+                tipoInteresse = user.TipoInteresse,
+                user.ProfilePictureUrl
             };
 
             return Ok(new

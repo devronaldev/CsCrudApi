@@ -1,9 +1,11 @@
 ﻿using CsCrudApi.Models;
 using CsCrudApi.Models.PostRelated;
+using CsCrudApi.Models.PostRelated.Requests;
 using CsCrudApi.Models.UserRelated.CollegeRelated;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Linq;
 
 namespace CsCrudApi.Controllers
 {
@@ -29,6 +31,73 @@ namespace CsCrudApi.Controllers
                 });
             }
             return Ok(c);
+        }
+
+        [HttpGet("buscar")]
+        public async Task<ActionResult<dynamic>> GetPosts([FromQuery] string partName, int pageNumber, int pageSize)
+        {
+            if (string.IsNullOrEmpty(partName))
+            {
+                return BadRequest(new
+                {
+                    Message = "O campo de busca não pode estar vazio."
+                });
+            }
+
+            pageSize = pageSize > 20 ? 20 : (pageSize < 1 ? 10 : pageSize);
+            pageNumber = pageNumber < 1 ? 1 : pageNumber;
+
+            try
+            {
+                var categoriesId = await _context.Categories
+                    .Where(c => EF.Functions.Like(c.Name, $"%{partName}%"))
+                    .Select(c => c.Id)
+                    .ToListAsync(); 
+
+                if (!categoriesId.Any())
+                {
+                    return NotFound(new { message = "Nenhuma categoria encontrada com o filtro especificado." });
+                }
+
+                var posts = await _context.Posts
+                    .Where(p => _context.PostHasCategories
+                    .Any(pc => pc.PostGUID == p.Guid && categoriesId.Contains(pc.CategoryID)))
+                    .OrderByDescending(p => p.PostDate) // Ordenação por data de postagem (mais recente primeiro)
+                    .Skip((pageNumber - 1) * pageSize) // Paginação
+                    .Take(pageSize) // Limitação de tamanho da página
+                    .ToListAsync();
+
+                posts = await CountLikesAsync(posts);
+
+                var postRequests = new List<PostRequest>();
+                foreach (Post p in posts)
+                {
+                    var request = new PostRequest
+                    {
+                        Post = p,
+                        Categories = await GetCategories(p.Guid)
+                    };
+                    postRequests.Add(request);
+                }
+
+                var listPosts = new List<FeedPost>();
+
+                foreach (var post in postRequests)
+                {
+                    listPosts.Add(new FeedPost
+                    {
+                        Post = post.Post,
+                        Categories = post.Categories,
+                        User = await GetUser(post.Post.UserId)
+                    });
+                }
+
+                return Ok(listPosts);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro: {ex.Message}");
+            }
         }
 
         [HttpGet("cursos")]
@@ -109,6 +178,40 @@ namespace CsCrudApi.Controllers
                 dcCategories.Add(category.CategoryID);
             }
             return dcCategories;
+        }
+
+        [NonAction]
+        public async Task<int> CountLikesAsync(string postGuid)
+        {
+            int count = await _context.PostLikes.Where(l => l.PostGuid == postGuid).CountAsync();
+            return count;
+        }
+
+        [NonAction]
+        public async Task<List<Post>> CountLikesAsync(List<Post> posts)
+        {
+            foreach (var post in posts)
+            {
+                post.QuantityLikes = await CountLikesAsync(post.Guid);
+            }
+
+            return posts;
+        }
+
+        [NonAction]
+        public async Task<object> GetUser(int userId)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+
+            return new
+            {
+                user.NmSocial,
+                user.TipoInteresse,
+                user.CdCampus,
+                user.UserId,
+                user.GrauEscolaridade,
+                user.ProfilePictureUrl,
+            };
         }
     }
 }

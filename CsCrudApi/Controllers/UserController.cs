@@ -390,6 +390,7 @@ namespace CsCrudApi.Controllers
                     {
                         Id = u.UserId,
                         Nome = u.NmSocial,
+                        u.ProfilePictureUrl
                     })
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
