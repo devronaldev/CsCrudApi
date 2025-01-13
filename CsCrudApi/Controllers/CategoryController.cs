@@ -1,7 +1,9 @@
 ﻿using CsCrudApi.Models;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.PostRelated.Requests;
+using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Models.UserRelated.CollegeRelated;
+using CsCrudApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -32,6 +34,122 @@ namespace CsCrudApi.Controllers
             }
             return Ok(c);
         }
+
+        [HttpGet("feed-users")]
+        public async Task<ActionResult<dynamic>> GetRecommendedUsers([FromHeader] string token)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                return BadRequest(new
+                {
+                    message = "O token não pode estar vazio."
+                });
+            }
+
+            try
+            {
+                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+
+                if (user == null)
+                {
+                    return NotFound(new { message = "Usuário não encontrado." });
+                }
+
+                var followedIds = await _context.UsersFollowing
+                    .Where(uf => uf.Status == true && uf.CdFollower == user.UserId)
+                    .Select(uf => uf.CdFollowed)
+                    .ToListAsync();
+
+                var recommendedUsers = await _context.Users
+                    .Where(u =>
+                        (u.CdCampus == user.CdCampus || u.CdCidade == user.CdCidade || u.CursoId == user.CursoId) &&
+                        !followedIds.Contains(u.UserId) &&
+                        u.UserId != user.UserId)
+                    .OrderBy(u => u.TipoInteresse)
+                    .Take(2) // Limitar diretamente no banco
+                    .Select(u => new
+                    {
+                        Name = u.NmSocial,
+                        Id = u.UserId,
+                        ProfilePicture = u.ProfilePictureUrl
+                    })
+                    .ToListAsync();
+
+                if (!recommendedUsers.Any())
+                {
+                    return NotFound(new { message = "Nenhum usuário recomendado encontrado." });
+                }
+
+                return Ok(recommendedUsers);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Erro inesperado: {ex.Message}" });
+            }
+        }
+
+        [HttpGet("feed-categories")]
+        public async Task<ActionResult<dynamic>> GetRecommendedCategories([FromHeader] string token)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                return BadRequest(new
+                {
+                    message = "O token não pode ser vazio."
+                });
+            }
+
+            try
+            {
+                // Validar o token e obter o usuário
+                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Usuário não encontrado." });
+                }
+
+                // Obter os posts do usuário atual
+                var usersPosts = await _context.Posts
+                    .Where(p => p.UserId == user.UserId)
+                    .OrderBy(p => p.QuantityLikes)
+                    .ToListAsync();
+
+                // Se o usuário não tiver posts, buscar posts de usuários recomendados
+                if (!usersPosts.Any())
+                {
+                    var recommendedUsersResponse = await GetRecommendedUsers(token);
+                    if (recommendedUsersResponse.Result is ObjectResult result && result.Value is IEnumerable<dynamic> recommendedUsers)
+                    {
+                        var userIds = recommendedUsers.Select(u => (int)u.Id).ToList();
+                        usersPosts = await _context.Posts
+                            .Where(p => userIds.Contains(p.UserId))
+                            .OrderBy(p => p.QuantityLikes)
+                            .ToListAsync();
+                    }
+                }
+
+                // Se ainda assim não houver posts, retornar vazio
+                if (!usersPosts.Any())
+                {
+                    return Ok(new { message = "Nenhuma categoria recomendada encontrada." });
+                }
+
+                // Obter as categorias associadas aos posts encontrados
+                var categories = await _context.PostHasCategories
+                    .Where(phc => usersPosts.Select(p => p.Guid).Contains(phc.PostGUID))
+                    .Select(phc => phc.CategoryID)
+                    .Distinct()
+                    .Take(2)
+                    .ToListAsync();
+
+                return Ok(categories);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Erro inesperado: {ex.Message}" });
+            }
+        }
+
 
         [HttpGet("buscar")]
         public async Task<ActionResult<dynamic>> GetPosts([FromQuery] string partName, int pageNumber, int pageSize)
