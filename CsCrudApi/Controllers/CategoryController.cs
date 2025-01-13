@@ -219,7 +219,7 @@ namespace CsCrudApi.Controllers
         }
 
         [HttpGet("cursos")]
-        public async Task<ActionResult<dynamic>> GetCursos() => await _context.Cursos.ToListAsync();
+        public async Task<ActionResult<dynamic>> GetCursos() => await _context.Cursos.OrderBy(c => c.NmCourse).ToListAsync();
 
         [HttpGet("curso/{id}")]
         public async Task<ActionResult<dynamic>> GetCurso([FromRoute] int id)
