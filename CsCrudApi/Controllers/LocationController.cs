@@ -3,6 +3,7 @@ using CsCrudApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using CsCrudApi.Models.UserRelated;
 using Microsoft.EntityFrameworkCore;
+using CsCrudApi.Models.UserRelated.CollegeRelated;
 
 namespace CsCrudApi.Controllers
 {
@@ -47,6 +48,12 @@ namespace CsCrudApi.Controllers
             }
 
             return Ok(cidade);
+        }
+
+        [HttpGet("campus/{id}")]
+        public async Task<Campus> GetCampus([FromRoute] int id)
+        {
+            return await _context.Campi.FirstOrDefaultAsync(c => c.Id == id);
         }
 
         [AllowAnonymous]
