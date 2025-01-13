@@ -83,13 +83,13 @@ namespace CsCrudApi.Models.UserRelated
     // Enum for DescTitulo
     public enum EGrauEscolaridade
     {
-        EnsinoMedio = 1,
-        Graduacao = 2,
-        PosGraduacao = 3,
-        MBA = 4,
-        Mestrado = 5,
-        Doutorado = 6,
-        PosDoutorado = 7
+        EnsinoMedio = 0,
+        Graduacao = 1,
+        PosGraduacao = 2,
+        MBA = 3,
+        Mestrado = 4,
+        Doutorado = 5,
+        PosDoutorado = 6
     }
 
     // Enum for TpColor
