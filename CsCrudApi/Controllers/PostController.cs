@@ -67,54 +67,54 @@ namespace CsCrudApi.Controllers
 
                 if (categories != null && categories.Any())
                 {
-                    // Obter as categorias existentes no banco que correspondem às descrições fornecidas
+                    // Obter categorias existentes
                     var existingCategories = await _context.Categories
                         .Where(c => categories.Contains(c.Description))
                         .ToListAsync();
 
-                    // Criar uma lista para novas categorias a serem adicionadas
-                    var newCategories = new List<Category>();
-
-                    foreach (string categoryDesc in categories)
-                    {
-                        // Verificar se a categoria já existe
-                        var category = existingCategories.FirstOrDefault(c => c.Description == categoryDesc);
-
-                        if (category == null)
+                    // Criar novas categorias
+                    var newCategories = categories
+                        .Where(categoryDesc => !existingCategories.Any(c => c.Description == categoryDesc))
+                        .Select(categoryDesc => new Category
                         {
-                            // Criar uma nova categoria
-                            category = new Category
-                            {
-                                Name = string.Join(" ", categoryDesc.Split('-')), 
-                                Description = categoryDesc,
-                                Quantity = 1 // Inicia com 1, pois está sendo usada neste post
-                            };
-
-                            newCategories.Add(category);
-                        }
-                        else
-                        {
-                            // Incrementar a quantidade da categoria existente
-                            category.Quantity++;
-                        }
-
-                        // Criar a associação entre Post e Categoria
-                        _context.PostHasCategories.Add(new PostHasCategory
-                        {
-                            PostGUID = post.Guid,
-                            CategoryID = category.Id
-                        });
-                    }
+                            Name = string.Join(" ", categoryDesc.Split('-')), // Nome amigável
+                            Description = categoryDesc,
+                            Quantity = 1 // Inicia com 1, pois está sendo usada neste post
+                        })
+                        .ToList();
 
                     // Adicionar novas categorias ao contexto
                     if (newCategories.Any())
                     {
                         _context.Categories.AddRange(newCategories);
+                        await _context.SaveChangesAsync(); // Salvar para gerar os IDs
+                    }
+
+                    // Atualizar a lista de categorias existentes com as recém-criadas
+                    existingCategories.AddRange(newCategories);
+
+                    // Criar associações entre Post e Categoria
+                    foreach (var category in existingCategories)
+                    {
+                        // Incrementar a quantidade de categorias existentes
+                        if (categories.Contains(category.Description))
+                        {
+                            category.Quantity++;
+                        }
+
+                        _context.PostHasCategories.Add(new PostHasCategory
+                        {
+                            PostGUID = post.Guid,
+                            CategoryID = category.Id // Agora `Id` está garantido
+                        });
                     }
                 }
+
+                // Salvar as alterações no banco
                 await _context.SaveChangesAsync();
 
                 return Ok(post); // Retorna o post criado
+
             }
             catch (Exception ex)
             {
