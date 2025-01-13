@@ -99,7 +99,7 @@ namespace CsCrudApi.Controllers
                         .Select(u => new
                         {
                             u.UserId,
-                            u.Name,
+                            u.NmSocial,
                             u.ProfilePictureUrl
                         })
                         .FirstOrDefaultAsync(u => u.UserId == comment.UserId);

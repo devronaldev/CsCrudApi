@@ -67,30 +67,31 @@ namespace CsCrudApi.Controllers
                 _context.Posts.Add(post);
                 if (categories != null)
                 {
-                    foreach (int categoryId in categories)
+                    foreach (string categoryDesc in categories)
                     {
                         // Verificar se a categoria existe no banco
-                        var category = await _context.Categories.FindAsync(categoryId);
+                        var category = await _context.Categories.FirstOrDefaultAsync(c=> c.Description == categoryDesc);
 
                         // Se não existir, criar uma nova categoria
                         if (category == null)
                         {
                             category = new Category
                             {
-                                Id = categoryId,
-                                Name = $"Categoria {categoryId}", // Define um nome padrão ou obtenha-o de outro lugar
-                                Description = $"Descrição padrão para categoria {categoryId}", // Altere se necessário
+                                Id = 0,
+                                Name = categoryDesc.Split("-").ToString(),
+                                Description = categoryDesc,
                                 Quantity = 0 // Inicialize os campos com valores padrão
                             };
 
-                            _context.Categories.Add(category); // Adiciona ao contexto
+                            _context.Categories.Add(category);
+                            category = await _context.Categories.FirstOrDefaultAsync(c => c.Description == categoryDesc);
                         }
 
                         // Criar a associação entre Post e Categoria
                         _context.PostHasCategories.Add(new PostHasCategory
                         {
                             PostGUID = post.Guid,
-                            CategoryID = categoryId
+                            CategoryID = category.Id
                         });
                     }
                 }

@@ -187,10 +187,10 @@ namespace CsCrudApi.Controllers
 
                 posts = await CountLikesAsync(posts);
 
-                var postRequests = new List<PostRequest>();
+                var postRequests = new List<PostRequestDTO>();
                 foreach (Post p in posts)
                 {
-                    var request = new PostRequest
+                    var request = new PostRequestDTO
                     {
                         Post = p,
                         Categories = await GetCategories(p.Guid)
