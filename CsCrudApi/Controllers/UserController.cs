@@ -244,7 +244,7 @@ namespace CsCrudApi.Controllers
             return Ok();
         }
 
-        [HttpPost("seguir")]
+        [HttpPost("seguir/{userId}")]
         public async Task<ActionResult<dynamic>> Follow([FromHeader] string token, [FromRoute] int userId)
         {
             if (string.IsNullOrEmpty(token))
@@ -336,9 +336,9 @@ namespace CsCrudApi.Controllers
         [Produces("application/json")]
         [Consumes("multipart/form-data")]
         [HttpPost("foto-perfil")]
-        public async Task<ActionResult> UpdateProfilePicture([FromForm] IFormFile profilePicture, [FromHeader] string token)
+        public async Task<ActionResult> UpdateProfilePicture([FromBody] string profilePicture, [FromHeader] string token)
         {
-            if(profilePicture == null || profilePicture.Length == 0)
+            if(string.IsNullOrEmpty(profilePicture))
             {
                 return BadRequest(new { message = "A foto de perfil é obrigatória." });
             }
@@ -346,12 +346,6 @@ namespace CsCrudApi.Controllers
             if (string.IsNullOrEmpty(token))
             {
                 return BadRequest(new { message = "O token não pode estar vazio." });
-            }
-
-            if (!FileServices.AllowedProfileContentTypes.Contains(profilePicture.ContentType))
-            {
-                Console.WriteLine($"O tipo de arquivo não é suportável. Verifique os detalhes: {profilePicture.ContentType} - {profilePicture.FileName}");
-                return BadRequest(new { message = "Formato de arquivo não suportado." });
             }
 
             try
@@ -362,19 +356,8 @@ namespace CsCrudApi.Controllers
                 {
                     return NotFound("Token inválido/expirado ou usuário não encontrado.");
                 }
-
-                // Enviar arquivo para S3
-                var fileName = $"profilePictures/{TokenServices.GenerateGUIDString()}";
-                using var stream = profilePicture.OpenReadStream();
-                var fileUrl = await _fileServices.UploadFileAsync(stream, fileName, profilePicture.ContentType);
                 
-
-                if (string.IsNullOrEmpty(fileUrl))
-                {
-                    return StatusCode(500, new { message = "Erro inesperado ao salvar o arquivo." });
-                }
-
-                user.ProfilePictureUrl = fileUrl;
+                user.ProfilePictureUrl = profilePicture;
                 await _context.SaveChangesAsync();
 
                 return Ok("Foto de perfil alterado com sucesso");

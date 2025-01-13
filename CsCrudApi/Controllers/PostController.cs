@@ -369,27 +369,36 @@ namespace CsCrudApi.Controllers
                 var posts = await _context.Posts
                     .Where(p => EF.Functions.Like(p.DcTitulo, $"%{titlePart}%"))
                     .OrderByDescending(p => p.PostDate)
-                    .Select(p => new
-                    {
-                        p.Guid,
-                        p.UserId,
-                        p.AreaId,
-                        p.Type,
-                        p.QuantityLikes,
-                    })
                     .Skip((pageNumber - 1)* pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                if (posts.Count == 0)
+                posts = await CountLikesAsync(posts);
+
+                var postRequests = new List<PostRequest>();
+                foreach (Post p in posts)
                 {
-                    return NotFound(new
+                    var request = new PostRequest
                     {
-                        Message = "Nenhum post encontrado."
+                        Post = p,
+                        Categories = await GetCategories(p.Guid)
+                    };
+                    postRequests.Add(request);
+                }
+
+                var listPosts = new List<FeedPost>();
+
+                foreach (var post in postRequests)
+                {
+                    listPosts.Add(new FeedPost
+                    {
+                        Post = post.Post,
+                        Categories = post.Categories,
+                        User = await GetUser(post.Post.UserId)
                     });
                 }
 
-                return Ok(posts);
+                return Ok(listPosts);
             }
             catch (Exception ex)
             {
@@ -432,19 +441,9 @@ namespace CsCrudApi.Controllers
                     .OrderByDescending(p => p.PostDate) // Ordenar por data decrescente
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
-                    .Select(p => new
-                    {
-                        p.Guid,
-                        p.UserId,
-                        p.AreaId,
-                        p.Type,
-                        p.QuantityLikes,
-                        p.PostDate,
-                        p.DcTitulo
-                    })
                     .ToListAsync();
 
-                if (posts.Count == 0)
+                if(posts.Count == 0)
                 {
                     return NotFound(new
                     {
@@ -452,7 +451,32 @@ namespace CsCrudApi.Controllers
                     });
                 }
 
-                return Ok(posts);
+                posts = await CountLikesAsync(posts);
+
+                var postRequests = new List<PostRequest>();
+                foreach (Post p in posts)
+                {
+                    var request = new PostRequest
+                    {
+                        Post = p,
+                        Categories = await GetCategories(p.Guid)
+                    };
+                    postRequests.Add(request);
+                }
+
+                var listPosts = new List<FeedPost>();
+
+                foreach (var post in postRequests)
+                {
+                    listPosts.Add(new FeedPost
+                    {
+                        Post = post.Post,
+                        Categories = post.Categories,
+                        User = await GetUser(post.Post.UserId)
+                    });
+                }
+
+                return Ok(listPosts);
             }
             catch (Exception ex)
             {
