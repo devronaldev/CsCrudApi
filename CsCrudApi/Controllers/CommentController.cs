@@ -92,7 +92,25 @@ namespace CsCrudApi.Controllers
                     });
                 }
 
-                return Ok(comments);
+                List<object> result = new List<object>();
+                foreach (var comment in comments)
+                {
+                    var user = await _context.Users
+                        .Select(u => new
+                        {
+                            u.UserId,
+                            u.Name,
+                            u.ProfilePictureUrl
+                        })
+                        .FirstOrDefaultAsync(u => u.UserId == comment.UserId);
+                    result.Add(new
+                    {
+                        user,
+                        comment
+                    });
+                }
+
+                return Ok(result);
             }
             catch (Exception ex)
             {
