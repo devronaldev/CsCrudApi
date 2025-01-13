@@ -201,7 +201,7 @@ namespace CsCrudApi.Controllers
 
                 posts = await CountLikesAsync(posts);
 
-                var listPosts = new List<PostRequest>();
+                var postRequests = new List<PostRequest>();
                 foreach (Post p in posts)
                 {
                     var request = new PostRequest
@@ -209,7 +209,18 @@ namespace CsCrudApi.Controllers
                         Post = p,
                         Categories = await GetCategories(p.Guid)
                     };
-                    listPosts.Add(request);
+                    postRequests.Add(request);
+                }
+
+                var listPosts = new List<FeedPost>();
+
+                foreach (var post in postRequests)
+                {
+                    listPosts.Add(new FeedPost
+                    {
+                        Post = post,
+                        User = await GetUser(post.Post.UserId)
+                    });
                 }
 
                 return Ok(listPosts);
@@ -594,6 +605,12 @@ namespace CsCrudApi.Controllers
                 dcCategories.Add(category.CategoryID);
             }
             return dcCategories;
+        }
+
+        [NonAction]
+        public async Task<User> GetUser(int userId)
+        {
+            return await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
         }
     }
 }
