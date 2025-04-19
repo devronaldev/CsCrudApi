@@ -3,12 +3,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using CsCrudApi.Models.UserRelated;
-using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using CsCrudApi.Services;
 using CsCrudApi.Models.UserRelated.Request;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
+using CsCrudApi.DTOs;
 
 namespace CsCrudApi.Controllers
 {
@@ -22,97 +22,121 @@ namespace CsCrudApi.Controllers
         {
             _context = context;
         }
-
+        
+        
+        /// <summary>
+        /// Realizar o login após receber o e-mail e senha
+        /// </summary>
+        /// <param name="login">Objeto contendo e-mail e senha do usuario</param>
+        /// <returns>Um ‘token’ JWT caso o ‘login’ seja bem-sucedido.</returns>
+        /// <response code="200">Retorna o ‘token’ JWT com validade de duas horas</response>
+        /// <response code="400">Requisição inválida. Retorna um DTO com mais informações e uma mensagem amigável para ser exibida.</response>
+        /// <response code="401">Senha inválida ou fora dos padrões. Retorna um DTO com mais informações e uma mensagem amigável para ser exibida.</response>
+        /// <response code="404">O usuário não existe. Retorna um DTO com mais informações e uma mensagem amigável para ser exibida.</response>
         [HttpPost("login")]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
         [AllowAnonymous]
-        public async Task<ActionResult<dynamic>> Login([FromBody] LoginDTO model)
+        public async Task<ActionResult<string>> Login([FromBody] LoginDTO login)
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new
-                {
-                    ModelState,
-                    message = "Modelagem inválida. Requisição inválida."
+                return BadRequest(new ErrorDTO{
+                    Message = "Houve um erro no envio das informações.",
+                    ErrorCode = "BR400MODEL",
+                    ErrorDescription = "Modelagem inválida. Requisição inválida."
                 });
             }
-            if (string.IsNullOrEmpty(model.Email))
+            if (string.IsNullOrEmpty(login.Email))
             {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO
                 {
-                    message = "E-mail vazio ou nulo."
+                    Message = "E-mail vazio ou nulo.",
+                    ErrorCode = "BR400EMAIL",
+                    ErrorDescription = "A requisição tem o valor de e-mail vazio ou nulo."
                 });
             }
-            if (string.IsNullOrEmpty(model.Password))
+            if (string.IsNullOrEmpty(login.Password))
             {
-                return Unauthorized(new
+                return Unauthorized(new ErrorDTO
                 {
-                    message = "Senha vazia ou nula."
+                    Message = "Senha vazia ou nula.",
+                    ErrorCode =  "UN401PASSWORD",
+                    ErrorDescription = "A requisição tem o valor de senha vazio ou nulo."
                 });
             }
-            if (model.Email.Length < 17)
+            if (login.Email.Length < 17)
             {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO
                 {
-                    message = "E-mail deve conter pelo menos 17 caracteres."
+                    Message = "E-mail tem tamanho insuficiente",
+                    ErrorCode = "BR400EMAIL",
+                    ErrorDescription = $"O e-mail tem apenas {login.Email.Length} caracteres. São necessários 17 caracteres ou mais."
                 });
             }
             var regex = new Regex(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?"":{}|<>])(?=.*[^a-zA-Z\d]).{8,}$");
-            if (!regex.IsMatch(model.Password))
+            if (!regex.IsMatch(login.Password))
             {
-                return Unauthorized(new
+                return BadRequest(new ErrorDTO
                 {
-                    message = "A senha não contém os padrões básicos de segurança."
+                    Message = "A senha precisa conter ao menos 8 caracteres, caixa alta, caixa baixa, caractere especial e um número.",
+                    ErrorCode = "BR400PASSWORD",
+                    ErrorDescription = "A senha não é compatível com os padrões de segurança."
                 });
             }
 
             var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == model.Email);
+                .FirstOrDefaultAsync(u => u.Email == login.Email);
             if (user == null) 
             {
-                return NotFound(new
+                return BadRequest(new ErrorDTO
                 {
-                    message = "Usuário ou senha inexistente."
+                    Message = "Usuário inexistente.",
+                    ErrorCode = "BR400NULL",
+                    ErrorDescription = "O usuário não está devidamente cadastro em nosso banco de dados."
                 });
             }
             if (user.IsEmailVerified == false)
             {
-                return BadRequest(new 
-                { 
-                    message = "E-mail não verificado." 
+                return BadRequest(new ErrorDTO
+                {
+                    Message = "E-mail não verificado.",
+                    ErrorCode = "BR400EMAIL",
+                    ErrorDescription = "O e-mail não foi corretamente verificado."
                 });
             }
-            if (!BCrypt.Net.BCrypt.Verify(model.Password, user.Password)) 
+            if (!BCrypt.Net.BCrypt.Verify(login.Password, user.Password)) 
             {
                 return Unauthorized(new
                 {
-                    message = "Usuário ou senha inexistente."
+                    Message = "E-mail ou senha incorretos.",
+                    ErrorCode = "BR401PASSWORD",
+                    ErrorDescription = "A senha não foi devidamente verificada."
                 });
             }
             var token = Services.TokenServices.GenerateToken(user);
             user.Password = "";
-            return new 
-            {
-                Usuario = user,
-                token, 
-            };
+            return token;
         }
 
+        /// <summary>
+        /// Esse endpoint é responsável por cadastrar novos funcionários e ao fim realizar o envio de um e-mail de verificação.
+        /// </summary>
+        /// <param name="model">É necessário um DTO de SignUp</param>
+        /// <returns>Retorna uma string informando que o e-mail foi devidamente cadastrado.</returns>
         [HttpPost("cadastrar")]
         [AllowAnonymous]
-        public async Task<ActionResult> Register([FromBody] User model)
+        public async Task<ActionResult<string>> Register([FromBody] UserSignUpDTO model)
         {
+            
             if (model == null)
             {
                 return BadRequest(new { message = "Os dados do usuário são obrigatórios." });
             }
-
-            // Normalizar e validar e-mail
-            model.Email = model.Email?.Trim().ToLower();
-            if (string.IsNullOrEmpty(model.Email) || model.Email.Length < 17)
-            {
-                return BadRequest(new { message = "E-mail inválido. Deve ter pelo menos 17 caracteres." });
-            }
-
+            
             // Verificar nome
             if (string.IsNullOrEmpty(model.Name.Trim()))
             {
@@ -135,39 +159,29 @@ namespace CsCrudApi.Controllers
             {
                 return BadRequest(new { message = "A senha não atende aos requisitos mínimos de segurança." });
             }
-
+            
+            var user = (User)model;
+            // Validar e-mail
+            user.Email = user.Email?.Trim().ToLower();
+            if (string.IsNullOrEmpty(model.Email) || model.Email.Length < 17)
+            {
+                return BadRequest(new { message = "E-mail inválido. Deve ter pelo menos 17 caracteres." });
+            }
+            
             // Validar enums e atribuir valores padrão
-            model.TipoInteresse = Enum.TryParse(model.TipoInteresse.ToString(), out ETipoInteresse interesse)
+            user.TipoInteresse = Enum.TryParse(user.TipoInteresse.ToString(), out ETipoInteresse interesse)
                 ? interesse
                 : ETipoInteresse.Orientado;
-            model.GrauEscolaridade = Enum.TryParse(model.GrauEscolaridade.ToString(), out EGrauEscolaridade escolaridade)
+            user.GrauEscolaridade = Enum.TryParse(user.GrauEscolaridade.ToString(), out EGrauEscolaridade escolaridade)
                 ? escolaridade
                 : EGrauEscolaridade.Graduacao;
-            model.TpColor = Enum.TryParse(model.TpColor.ToString(), out EColor color)
+            user.TpColor = Enum.TryParse(user.TpColor.ToString(), out EColor color)
                 ? color
                 : EColor.White;
 
             // Configurar dados do usuário
-            model.NmSocial ??= model.Name?.Trim();
-            model.Password = BCrypt.Net.BCrypt.HashPassword(model.Password);
-
-            var user = new User
-            {
-                Email = model.Email,
-                Password = model.Password,
-                CdCampus = model.CdCampus,
-                Name = model.Name?.Trim(),
-                DtNasc = model.DtNasc,
-                TipoInteresse = model.TipoInteresse,
-                GrauEscolaridade = model.GrauEscolaridade,
-                NmSocial = model.NmSocial?.Trim(),
-                TpColor = model.TpColor,
-                CdCidade = model.CdCidade,
-                IsEmailVerified = false,
-                CursoId = model.CursoId,
-                StatusCourse = model.StatusCourse,
-                ProfilePictureUrl = model.ProfilePictureUrl
-            };
+            user.NmSocial ??= model.Name?.Trim();
+            user.Password = BCrypt.Net.BCrypt.HashPassword(model.Password);
 
             try
             {

@@ -14,7 +14,13 @@ Env.Load();
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c=>
+{
+    c.SwaggerDoc("Development", new OpenApiInfo
+    {
+        Title = "API Conectando Saberes", Version = "0.2.0"
+    });
+});
 
 builder.Services.AddSingleton(provider =>
 {
@@ -47,7 +53,10 @@ if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/Development/swagger.json", "API Conectando Saberes 0.2.0");
+    });
 }
 else
 {

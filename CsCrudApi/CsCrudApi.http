@@ -1,6 +1,3 @@
 @CsCrudApi_HostAddress = http://localhost:5042
 
-GET {{CsCrudApi_HostAddress}}/weatherforecast/
-Accept: application/json
-
 ###

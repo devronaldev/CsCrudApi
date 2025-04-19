@@ -106,7 +106,6 @@ namespace CsCrudApi.Migrations
                         .HasColumnName("descricao_titulo");
 
                     b.Property<string>("ExternalLink")
-                        .IsRequired()
                         .HasColumnType("longtext")
                         .HasColumnName("link_externo");
 
