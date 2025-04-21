@@ -25,14 +25,19 @@ namespace CsCrudApi.Controllers
         
         
         /// <summary>
-        /// Realizar o login após receber o e-mail e senha
+        /// Realiza o login de um usuário a partir do e-mail e senha fornecidos.
         /// </summary>
-        /// <param name="login">Objeto contendo e-mail e senha do usuario</param>
-        /// <returns>Um ‘token’ JWT caso o ‘login’ seja bem-sucedido.</returns>
-        /// <response code="200">Retorna o ‘token’ JWT com validade de duas horas</response>
-        /// <response code="400">Requisição inválida. Retorna um DTO com mais informações e uma mensagem amigável para ser exibida.</response>
-        /// <response code="401">Senha inválida ou fora dos padrões. Retorna um DTO com mais informações e uma mensagem amigável para ser exibida.</response>
-        /// <response code="404">O usuário não existe. Retorna um DTO com mais informações e uma mensagem amigável para ser exibida.</response>
+        /// <param name="login">Objeto contendo o e-mail e a senha do usuário.</param>
+        /// <returns>Token JWT como string no corpo da resposta, caso o login seja bem-sucedido.</returns>
+        /// <remarks>
+        /// O token JWT retornado deve ser utilizado no cabeçalho `Authorization` das requisições futuras:
+        /// Authorization: Bearer {seu_token}
+        /// </remarks>
+        /// <response code="200">Login bem-sucedido. Retorna o token JWT com validade de duas horas.</response>
+        /// <response code="400">Requisição inválida. Retorna um ErrorDTO com mais informações e uma mensagem amigável.</response>
+        /// <response code="401">Senha inválida ou fora dos padrões. Retorna um ErrorDTO com mais informações e uma mensagem amigável.</response>
+        /// <response code="404">O usuário não existe. Retorna um ErrorDTO com mais informações e uma mensagem amigável.</response>
+        /// <response code="500">Erro interno no servidor.</response>
         [HttpPost("login")]
         [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
@@ -80,7 +85,7 @@ namespace CsCrudApi.Controllers
             var regex = new Regex(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?"":{}|<>])(?=.*[^a-zA-Z\d]).{8,}$");
             if (!regex.IsMatch(login.Password))
             {
-                return BadRequest(new ErrorDTO
+                return Unauthorized(new ErrorDTO
                 {
                     Message = "A senha precisa conter ao menos 8 caracteres, caixa alta, caixa baixa, caractere especial e um número.",
                     ErrorCode = "BR400PASSWORD",
@@ -96,7 +101,7 @@ namespace CsCrudApi.Controllers
                 {
                     Message = "Usuário inexistente.",
                     ErrorCode = "BR400NULL",
-                    ErrorDescription = "O usuário não está devidamente cadastro em nosso banco de dados."
+                    ErrorDescription = "O usuário não está devidamente cadastrado em nosso banco de dados."
                 });
             }
             if (user.IsEmailVerified == false)
@@ -110,7 +115,7 @@ namespace CsCrudApi.Controllers
             }
             if (!BCrypt.Net.BCrypt.Verify(login.Password, user.Password)) 
             {
-                return Unauthorized(new
+                return Unauthorized(new ErrorDTO
                 {
                     Message = "E-mail ou senha incorretos.",
                     ErrorCode = "BR401PASSWORD",
@@ -123,26 +128,41 @@ namespace CsCrudApi.Controllers
         }
 
         /// <summary>
-        /// Esse endpoint é responsável por cadastrar novos funcionários e ao fim realizar o envio de um e-mail de verificação.
+        /// Cria um novo usuário com base nos dados fornecidos no DTO e envia um e-mail para verificação de conta.
         /// </summary>
-        /// <param name="model">É necessário um DTO de SignUp</param>
-        /// <returns>Retorna uma string informando que o e-mail foi devidamente cadastrado.</returns>
+        /// <param name="model">DTO contendo as informações para cadastro de usuário.</param>
+        /// <returns>Mensagem de confirmação e ID do usuário criado.</returns>
+        /// <response code="200">A criação foi bem sucedida. Retorna uma string com a mensagem de confirmação.</response>
+        /// <response code="400">Requisição inválida. Retorna um ErrorDTO com mais informações e uma mensagem amigável.</response>
+        /// <response code="409">O e-mail informado já é utilizado no nosso banco de dados.</response>
+        /// <response code="500">Erro interno no servidor.</response>
         [HttpPost("cadastrar")]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status409Conflict)]
         [AllowAnonymous]
         public async Task<ActionResult<string>> Register([FromBody] UserSignUpDTO model)
         {
             
             if (model == null)
             {
-                return BadRequest(new { message = "Os dados do usuário são obrigatórios." });
+                return BadRequest(new ErrorDTO
+                {
+                    Message = "Os dados do usuário são obrigatórios.",
+                    ErrorCode = "BR400MODEL",
+                    ErrorDescription = "O Model foi enviado com valores nulos ou vazio."
+                });
             }
             
             // Verificar nome
             if (string.IsNullOrEmpty(model.Name.Trim()))
             {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO
                 {
-                    message = "O nome não pode estar vazio."
+                    Message = "O nome do usuário está vazio.",
+                    ErrorCode = "BR400NAME",
+                    ErrorDescription = "A propriedade 'model.Name' está nula ou vazio."
                 });
             }
 
@@ -150,22 +170,37 @@ namespace CsCrudApi.Controllers
             var verification = await IsEmailExistent(model.Email);
             if (verification.Result is ConflictObjectResult)
             {
-                return Conflict(new { message = "O e-mail informado já está cadastrado." });
+                return Conflict(new ErrorDTO
+                {
+                    Message = "O e-mail informado já está cadastrado.",
+                    ErrorCode = "BR400EMAIL",
+                    ErrorDescription = "O e-mail foi encontrado em um outro cadastro ou alteração de e-mail."
+                });
             }
 
             // Validar senha
             var passwordRegex = new Regex(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?""{}|<>]).{8,}$");
             if (string.IsNullOrEmpty(model.Password) || !passwordRegex.IsMatch(model.Password))
             {
-                return BadRequest(new { message = "A senha não atende aos requisitos mínimos de segurança." });
+                return BadRequest(new ErrorDTO
+                {
+                    Message = "A senha precisa conter ao menos 8 caracteres, caixa alta, caixa baixa, caractere especial e um número.",
+                    ErrorCode = "BR400PASSWORD",
+                    ErrorDescription = "A senha não é compatível com os padrões de segurança."
+                });
             }
             
             var user = (User)model;
             // Validar e-mail
             user.Email = user.Email?.Trim().ToLower();
-            if (string.IsNullOrEmpty(model.Email) || model.Email.Length < 17)
+            if (string.IsNullOrEmpty(user.Email) || user.Email.Length < 17)
             {
-                return BadRequest(new { message = "E-mail inválido. Deve ter pelo menos 17 caracteres." });
+                return BadRequest(new ErrorDTO
+                {
+                    Message = "E-mail tem tamanho insuficiente",
+                    ErrorCode = "BR400EMAIL",
+                    ErrorDescription = $"O e-mail tem caracteres insuficientes. São necessários 17 caracteres ou mais."
+                });
             }
             
             // Validar enums e atribuir valores padrão
@@ -192,13 +227,20 @@ namespace CsCrudApi.Controllers
                 // Enviar e-mail de verificação
                 await EmailServices.SendVerificationEmail(user);
 
-                return Ok(new { message = "Usuário registrado com sucesso!", userId = user.UserId });
+                return Ok(new
+                {
+                    Message = "Usuário registrado com sucesso!"
+                });
             }
             catch (Exception ex)
             {
-                // Logar o erro e retornar mensagem amigável
-                Console.Error.WriteLine($"Erro ao registrar usuário: {ex}");
-                return StatusCode(500, new { message = "Erro ao registrar usuário.", error = ex.Message });
+                return StatusCode(500, 
+                    new ErrorDTO
+                    {
+                        Message = "Erro desconhecido ao registrar usuário.",
+                        ErrorCode = "SERVER500",
+                        ErrorDescription = ex.Message
+                    });
             }
         }
 

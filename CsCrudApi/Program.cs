@@ -13,6 +13,22 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 Env.Load();
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevPolicy", policy =>
+    {
+        policy.AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+
+    options.AddPolicy("ProdPolicy", policy =>
+    {
+        policy.WithOrigins("https://conectandosaberes.com.br")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c=>
 {
@@ -20,12 +36,11 @@ builder.Services.AddSwaggerGen(c=>
     {
         Title = "API Conectando Saberes", Version = "0.2.0"
     });
+    
+    var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
 });
 
-builder.Services.AddSingleton(provider =>
-{
-    return new FileServices();
-});
 var key = Encoding.ASCII.GetBytes(Environment.GetEnvironmentVariable("SECRET"));
 builder.Services.AddAuthentication(options =>
 {
@@ -57,18 +72,20 @@ if (app.Environment.IsDevelopment())
     {
         c.SwaggerEndpoint("/swagger/Development/swagger.json", "API Conectando Saberes 0.2.0");
     });
+
+    app.UseCors("DevPolicy");
 }
 else
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
+
+    app.UseCors("ProdPolicy");
 }
 
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
-
-app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
 app.UseRouting();
 
