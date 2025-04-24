@@ -39,13 +39,13 @@ namespace CsCrudApi.Controllers
         /// <response code="404">O usuário não existe. Retorna um ErrorDTO com mais informações e uma mensagem amigável.</response>
         /// <response code="500">Erro interno no servidor.</response>
         [HttpPost("login")]
-        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(SuccessDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
         [AllowAnonymous]
-        public async Task<ActionResult<string>> Login([FromBody] LoginDTO login)
+        public async Task<ActionResult<SuccessDTO>> Login([FromBody] LoginDTO login)
         {
             if (!ModelState.IsValid)
             {
@@ -124,7 +124,7 @@ namespace CsCrudApi.Controllers
             }
             var token = Services.TokenServices.GenerateToken(user);
             user.Password = "";
-            return token;
+            return Ok(new SuccessDTO(token, "Token - Authorization"));
         }
 
         /// <summary>
@@ -137,7 +137,7 @@ namespace CsCrudApi.Controllers
         /// <response code="409">O e-mail informado já é utilizado no nosso banco de dados.</response>
         /// <response code="500">Erro interno no servidor.</response>
         [HttpPost("cadastrar")]
-        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(SuccessDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status409Conflict)]
@@ -227,10 +227,7 @@ namespace CsCrudApi.Controllers
                 // Enviar e-mail de verificação
                 await EmailServices.SendVerificationEmail(user);
 
-                return Ok(new
-                {
-                    Message = "Usuário registrado com sucesso!"
-                });
+                return Ok(new SuccessDTO("Usuário registrado com sucesso!"));
             }
             catch (Exception ex)
             {
@@ -244,9 +241,29 @@ namespace CsCrudApi.Controllers
             }
         }
 
-
+        /// <summary>
+        /// Verifica se o e-mail informado já está em uso.
+        /// </summary>
+        /// <param name="email">E-mail a ser verificado.</param>
+        /// <returns>
+        /// Retorna:
+        /// <list type="bullet">
+        /// <item><description><see cref="ConflictResult"/> se o e-mail já estiver em uso ou em processo de verificação.</description></item>
+        /// <item><description><see cref="NotFoundResult"/> se o e-mail estiver disponível.</description></item>
+        /// <item><description><see cref="BadRequestResult"/> se o e-mail for nulo ou vazio.</description></item>
+        /// <item><description><see cref="StatusCodeResult"/> 406 se o e-mail for muito curto.</description></item>
+        /// </list>
+        /// </returns>
+        /// <response code="409">E-mail já cadastrado ou em processo de troca.</response>
+        /// <response code="404">E-mail disponível para cadastro.</response>
+        /// <response code="400">E-mail não pode ser vazio.</response>
+        /// <response code="406">E-mail precisa ter mais de 17 caracteres.</response>
         [HttpGet("email-existe")]
         [AllowAnonymous]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status406NotAcceptable)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<dynamic>> IsEmailExistent(string email)
         {
             email = email.ToLower().Trim();
@@ -276,9 +293,24 @@ namespace CsCrudApi.Controllers
             return NotFound(new { message = "O e-mail não foi encontrado." });
         }
 
+        /// <summary>
+        /// Verifica um e-mail com base no token JWT fornecido.
+        /// </summary>
+        /// <param name="token">Token JWT de verificação de e-mail.</param>
+        /// <returns>
+        /// Retorna:
+        /// <list type="bullet">
+        /// <item><description><see cref="OkResult"/> se o e-mail for verificado com sucesso.</description></item>
+        /// <item><description><see cref="BadRequestResult"/> se o token for inválido, claim ausente ou usuário não encontrado.</description></item>
+        /// </list>
+        /// </returns>
+        /// <response code="200">E-mail verificado com sucesso.</response>
+        /// <response code="400">Token inválido, claim ausente ou usuário não encontrado.</response>
         [HttpGet("verificar-email")]
         [AllowAnonymous]
-        public async Task<ActionResult<dynamic>> VerifyEmail(string token)
+        [ProducesResponseType(typeof(SuccessDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<SuccessDTO>> VerifyEmail(string token)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = TokenServices.GetKey();
@@ -308,7 +340,7 @@ namespace CsCrudApi.Controllers
                 _context.Users.Update(user);
                 await _context.SaveChangesAsync();
 
-                return Ok("E-mail verificado com sucesso!");
+                return Ok(new SuccessDTO("E-mail verificado com sucesso!"));
             }
             catch (Exception ex)
             {
@@ -316,8 +348,26 @@ namespace CsCrudApi.Controllers
             }
         }
 
+        /// <summary>
+        /// Cancela o pré-cadastro de um usuário com base no e-mail, caso ele ainda não tenha sido verificado.
+        /// </summary>
+        /// <param name="email">E-mail do usuário a ser removido.</param>
+        /// <returns>
+        /// Retorna:
+        /// <list type="bullet">
+        /// <item><description><see cref="OkObjectResult"/> caso o cadastro seja removido com sucesso.</description></item>
+        /// <item><description><see cref="NotFoundResult"/> se o e-mail não estiver cadastrado.</description></item>
+        /// <item><description><see cref="BadRequestObjectResult"/> se o e-mail já estiver verificado ou ocorrer um erro ao excluir.</description></item>
+        /// </list>
+        /// </returns>
+        /// <response code="200">Cadastro removido com sucesso.</response>
+        /// <response code="400">O e-mail já foi verificado ou ocorreu um erro durante a exclusão.</response>
+        /// <response code="404">E-mail não encontrado.</response>
         [HttpGet("cancelar-cadastro")]
-        public async Task<ActionResult<dynamic>> DeleteRegister(string email)
+        [ProducesResponseType(typeof(SuccessDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<SuccessDTO>> DeleteRegister(string email)
         {
             email = email.ToLower().Trim();
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
@@ -342,7 +392,7 @@ namespace CsCrudApi.Controllers
             {
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
-                return Ok("Cadastro removido com sucesso.");
+                return Ok(new SuccessDTO("Cadastro removido com sucesso."));
             }
             catch (Exception ex)
             {
