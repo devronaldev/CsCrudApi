@@ -48,7 +48,7 @@ namespace CsCrudApi.Services
             
             //TROCAR URL POR VARIÁVEL DE AMBIENTE
             var verificationLink = string.Format($"{rootRoute}api/UserAuth/verificar-email?token={token}");
-            var cancelationLink = $"{rootRoute}api/UserAuth/cancelar-cadastro?email={user.Email}";
+            var cancelationLink = $"{rootRoute}api/UserAuth/cancelar-cadastro?token={token}";
             var plainTextContent = $"Por favor, clique no link para verificar seu e-mail: {verificationLink}. Caso você não tenha solicitado cadastro, clique nesse link para cancelar inscrição: {cancelationLink}";
             string htmlContent = await GetHTMLContent("VerificationEmail");
             

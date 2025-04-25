@@ -97,10 +97,10 @@ namespace CsCrudApi.Controllers
                 .FirstOrDefaultAsync(u => u.Email == login.Email);
             if (user == null) 
             {
-                return BadRequest(new ErrorDTO
+                return NotFound(new ErrorDTO
                 {
                     Message = "Usuário inexistente.",
-                    ErrorCode = "BR400NULL",
+                    ErrorCode = "NOTF404",
                     ErrorDescription = "O usuário não está devidamente cadastrado em nosso banco de dados."
                 });
             }
@@ -263,34 +263,51 @@ namespace CsCrudApi.Controllers
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status406NotAcceptable)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status409Conflict)]
-        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<dynamic>> IsEmailExistent(string email)
+        [ProducesResponseType(typeof(SuccessDTO), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<SuccessDTO>> IsEmailExistent(string email)
         {
             email = email.ToLower().Trim();
             if (string.IsNullOrEmpty(email))
             {
-                return BadRequest(new { message = "O e-mail não pode ser vazio." });
+                return BadRequest(new ErrorDTO
+                {
+                    ErrorCode = "BR400EMAIL",
+                    Message = "O e-mail não pode ser vazio.",
+                    ErrorDescription = "O valor de e-mail foi verificado com nulo ou vazio"
+                });
             }
             if (email.Length < 17)
             {
-                return StatusCode(406, new
+                return StatusCode(406, new ErrorDTO
                 {
-                    message = "E-mail precisa ter mais de 17 caracteres",
+                    ErrorCode = "NOTACP406EMAIL",
+                    Message = "E-mail tem menos de 17 caracteres.",
+                    ErrorDescription = $"O e-mail:{email} tem apenas {email.Length} caracteres."
                 });
             }
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
             if (user != null)
             {
-                return Conflict(new { message = "E-mail já cadastrado." });
+                return Conflict(new ErrorDTO
+                {
+                    ErrorCode = "CF409EXIST",
+                    ErrorDescription = "O e-mail foi encontrado como cadastrado dentro do nosso banco de dados.",
+                    Message = "E-mail já cadastrado."
+                });
             }
 
             // Verifica se o e-mail está envolvido em alguma troca (Pode ser tanto um e-mail novo, quanto um antigo de uma solicitação).
             var trocaEmail = await _context.EmailVerifications.FirstOrDefaultAsync(t => t.NewEmail == email);
             if (trocaEmail != null) { 
-                return Conflict(new { message = "E-mail já cadastrado." }); 
+                return Conflict(new ErrorDTO
+                {
+                    ErrorCode = "CF409EXIST",
+                    ErrorDescription = "O e-mail foi encontrado como cadastrado dentro do nosso banco de dados.",
+                    Message = "E-mail já cadastrado."
+                });
             }
 
-            return NotFound(new { message = "O e-mail não foi encontrado." });
+            return NotFound(new SuccessDTO("O e-mail não foi encontrado."));
         }
 
         /// <summary>
@@ -306,34 +323,49 @@ namespace CsCrudApi.Controllers
         /// </returns>
         /// <response code="200">E-mail verificado com sucesso.</response>
         /// <response code="400">Token inválido, claim ausente ou usuário não encontrado.</response>
+        /// <response code="404">O usuário não foi encontrado.</response>
         [HttpGet("verificar-email")]
         [AllowAnonymous]
         [ProducesResponseType(typeof(SuccessDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<SuccessDTO>> VerifyEmail(string token)
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = TokenServices.GetKey();
-
-            try
+           try
             {
                 var claimsPrincipal = TokenServices.ValidateJwtToken(token);
                 if (claimsPrincipal == null)
                 {
-                    return BadRequest("Erro: Token inválido ou não pode ser validado.");
+                    return BadRequest(new ErrorDTO
+                    {
+                        ErrorCode = "BR400TOKEN",
+                        Message = "Erro: Token inválido ou não pode ser validado.",
+                        ErrorDescription = "O Token não apresenta 'Claims' válidas após ser validado."
+                    }); // TODO: Possibilitar retorno de CSHTML
+                    
                 }
 
                 var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
                 if (string.IsNullOrEmpty(emailClaim))
                 {
-                    return BadRequest("Token inválido, claim de e-mail ausente.");
+                    return BadRequest(new ErrorDTO
+                    {
+                        ErrorCode = "BR400TOKEN",
+                        Message = "Erro: Token inválido ou não pode ser validado.",
+                        ErrorDescription = "Não foi encontrado uma claim de e-mail."
+                    }); // TODO: Possibilitar retorno de CSHTML
                 }
 
                 var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Email == emailClaim);
                 if (user == null)
                 {
-                    return BadRequest("Usuário não encontrado.");
+                    return NotFound(new ErrorDTO
+                    {
+                        ErrorCode = "NOTF404USER",
+                        Message = "Usuário não encontrado.",
+                        ErrorDescription = "Não foi encontrado usuário com o e-mail informado."
+                    }); // TODO: Possibilitar retorno de CSHTML
                 }
 
                 user.IsEmailVerified = true;
@@ -344,7 +376,12 @@ namespace CsCrudApi.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest($"Token inválido. Erro: {ex.Message}");
+                return BadRequest(new ErrorDTO
+                    {
+                        ErrorCode = "SERVER500",
+                        ErrorDescription = ex.Message,
+                        Message = $"Token inválido. Por favor, realizar novamente o login."
+                    });
             }
         }
 
@@ -367,24 +404,50 @@ namespace CsCrudApi.Controllers
         [ProducesResponseType(typeof(SuccessDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<SuccessDTO>> DeleteRegister(string email)
+        public async Task<ActionResult<SuccessDTO>> DeleteRegister(string token)
         {
-            email = email.ToLower().Trim();
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            var claimsPrincipal = TokenServices.ValidateJwtToken(token);
+            if (claimsPrincipal == null)
+            {
+                return BadRequest(new ErrorDTO
+                {
+                    ErrorCode = "BR400TOKEN",
+                    Message = "Erro: Token inválido ou não pode ser validado.",
+                    ErrorDescription = "O Token não apresenta 'Claims' válidas após ser validado."
+                }); // TODO: Possibilitar retorno de CSHTML
+                    
+            }
 
+            var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
+            if (string.IsNullOrEmpty(emailClaim))
+            {
+                return BadRequest(new ErrorDTO
+                {
+                    ErrorCode = "BR400TOKEN",
+                    Message = "Erro: Token inválido ou não pode ser validado.",
+                    ErrorDescription = "Não foi encontrado uma claim de e-mail."
+                }); // TODO: Possibilitar retorno de CSHTML
+            }
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == emailClaim);
             if (user == null)
             {
-                return NotFound(new
+                return NotFound(new ErrorDTO
                 {
-                    Message = "E-mail não encontrado"
-                });
+                    ErrorCode = "NOTF404USER",
+                    Message = "Usuário não encontrado.",
+                    ErrorDescription = "Não foi encontrado usuário com o e-mail informado."
+                }); // TODO: Possibilitar retorno de CSHTML
             }
 
             if (user.IsEmailVerified)
             {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO
                 {
-                    Message = "E-mail já verificado. Impossível de excluir pré-cadastro. Caso tenha interesse, por favor, logar na página e ir até Configurações > Conta e Segurança e clicar no botão excluir perfil."
+                    ErrorCode = "BR400VERIFIED",
+                    Message = "E-mail já verificado. Impossível de excluir pré-cadastro. Caso tenha interesse, por favor, logar na página e ir até Configurações > Conta e Segurança e clicar no botão excluir perfil.",
+                    ErrorDescription = "Após a verificação, nenhuma conta pode ser apagada por esse endpoint."
                 });
             }
 
@@ -396,7 +459,12 @@ namespace CsCrudApi.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest($"Erro na exclusão de registro: {ex.Message}");
+                return BadRequest(new ErrorDTO
+                {
+                    ErrorCode = "SERVER500",
+                    ErrorDescription = ex.Message,
+                    Message = $"Erro na exclusão de registro."
+                });
             }
         }
     }

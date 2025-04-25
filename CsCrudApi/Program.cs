@@ -64,7 +64,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseMySql(
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
 {
     app.UseDeveloperExceptionPage();
     app.UseSwagger();
