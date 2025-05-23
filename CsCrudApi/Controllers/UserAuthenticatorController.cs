@@ -18,11 +18,10 @@ namespace CsCrudApi.Controllers
     {
         private readonly ApplicationDbContext _context;
         
-        public UserAuthController(ApplicationDbContext context, FileServices fileServices)
+        public UserAuthController(ApplicationDbContext context)
         {
             _context = context;
         }
-        
         
         /// <summary>
         /// Realiza o login de um usuário a partir do e-mail e senha fornecidos.

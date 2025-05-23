@@ -1,14 +1,12 @@
-﻿using CsCrudApi.Models;
+﻿using System.Security.Claims;
+using CsCrudApi.Models;
 using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.UserRelated.Request;
 using Microsoft.AspNetCore.Authorization;
-using System.Net.Mime;
+using CsCrudApi.DTOs;
 
 namespace CsCrudApi.Controllers
 {
@@ -17,141 +15,209 @@ namespace CsCrudApi.Controllers
     public class UserController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly FileServices _fileServices;
 
-        public UserController(ApplicationDbContext context, FileServices fileServices)
+        public UserController(ApplicationDbContext context)
         {
             _context = context;
-            _fileServices = fileServices;
         }
 
+        /// <summary>
+        /// Retorna os detalhes do perfil de um usuário específico.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint permite que qualquer pessoa visualize informações públicas de um perfil de usuário,
+        /// incluindo nome social, data de nascimento, e-mail, URL da foto de perfil,
+        /// preferências, curso, escolaridade, campus e a contagem de seguidores e de quem o usuário segue.
+        /// Retorna um erro 404 se o usuário, a cidade ou o campus associado não forem encontrados no sistema.
+        /// </remarks>
+        /// <param name="userId">O ID único do usuário cujo perfil será consultado.</param>
+        /// <returns>
+        /// Retorna uma instância de <see cref="UserProfileDTO"/> se o perfil for encontrado.
+        /// Retorna <see cref="StatusCodes.Status404NotFound"/> com um <see cref="ErrorDTO"/>
+        /// se o usuário, a cidade ou o campus não existirem.
+        /// </returns>
+        /// <response code="200">Retorna com sucesso o <see cref="UserProfileDTO"/> com os dados do perfil.</response>
+        /// <response code="404">Retorna <see cref="ErrorDTO"/> indicando que o usuário, cidade ou campus não foi encontrado.</response>
         [HttpGet("perfil/{userId}")]
         [AllowAnonymous]
-        public async Task<ActionResult<dynamic>> Profile([FromRoute] int userId)
+        [ProducesResponseType(typeof(UserProfileDTO), StatusCodes.Status200OK)] // Agora retorna UserProfileDTO
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<UserProfileDTO>> Profile([FromRoute] int userId) // Tipo de retorno explícito
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
 
             if (user == null)
             {
-                return NotFound("Usuário não encontrado ou inexistente.");
+                return NotFound(new ErrorDTO
+                {
+                    ErrorCode = "USER404",
+                    Message = "Usuário não encontrado.",
+                    ErrorDescription = $"Não foi encontrado usuário com o ID '{userId}'."
+                });
             }
 
             var cidade = await _context.Cidades.FirstOrDefaultAsync(c => c.IdCidade == user.CdCidade);
 
             if (cidade == null)
             {
-                return NotFound("Usuário com cidade não cadastrada ou cadastrado incorretamente.");
+                return NotFound(new ErrorDTO
+                {
+                    ErrorCode = "CITY404",
+                    Message = "Cidade do usuário não encontrada.",
+                    ErrorDescription = $"A cidade associada ao usuário (ID: {user.CdCidade}) não foi encontrada ou está incorreta."
+                });
             }
 
             var campus = await _context.Campi.FirstOrDefaultAsync(campi => campi.Id == user.CdCampus);
 
             if (campus == null)
             {
-                return NotFound("Campus não encontrado ou cadastrado incorretamente");
-            }
-
-            int followers = await GetFollowers(user.UserId);
-
-            int following = await GetFollowing(user.UserId);
-
-            PostController postController = new(_context);
-
-            return new
-            {
-                IdUsuario = user.UserId,
-                NmUsuario = user.NmSocial,
-                user.DtNasc,
-                user.Email,
-                user.ProfilePictureUrl,
-                TpPreferencia = user.TipoInteresse,
-                user.CursoId,
-                user.GrauEscolaridade,
-                Seguidores = followers,
-                Seguindo = following,
-                Cidade = cidade.Name,
-                NmInstituicao = $"{campus.SgCampus} - {campus.CampusName}",
-                IdCampus = campus.Id
-            };
-        }
-
-        [Authorize]
-        [RequireHttps]
-        [HttpPatch("atualizar-senha")]
-        public async Task<ActionResult<dynamic>> ChangePassword([FromHeader] string token, [FromBody] ChangePasswordRequest request)
-        {
-            if (string.IsNullOrEmpty(token))
-            {
-                return BadRequest(new
+                return NotFound(new ErrorDTO
                 {
-                    Message = "Erro: Token vazio."
+                    ErrorCode = "CAMPUS404",
+                    Message = "Campus do usuário não encontrado.",
+                    ErrorDescription = $"O campus associado ao usuário (ID: {user.CdCampus}) não foi encontrado ou está incorreto."
                 });
             }
 
-            if (request == null)
+            var followers = await GetFollowers(user.UserId);
+            var following = await GetFollowing(user.UserId);
+
+            // Usa o construtor do DTO para criar a instância
+            var userProfile = new UserProfileDTO(user, cidade, campus, followers, following);
+
+            return Ok(userProfile);
+        }
+
+        /// <summary>
+        /// Permite que um usuário autenticado altere sua senha.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint requer autenticação (JWT no cabeçalho 'Authorization').
+        /// A nova senha deve ser diferente da antiga e a confirmação deve ser idêntica à nova senha.
+        /// Em caso de sucesso, um novo token JWT é gerado e retornado, invalidando o anterior.
+        /// É enviado um e-mail de notificação ao usuário após a alteração.
+        /// </remarks>
+        /// <param name="token">O token JWT do usuário, geralmente fornecido via cabeçalho 'Authorization: Bearer &lt;token&gt;'.
+        /// Embora o atributo [Authorize] trate a autenticação, este parâmetro pode ser usado para acessar o token diretamente.</param>
+        /// <param name="request">Um objeto <see cref="ChangePasswordRequest"/> contendo a senha antiga, nova senha e confirmação da nova senha.</param>
+        /// <returns>
+        /// Retorna:
+        /// <list type="bullet">
+        /// <item><description><see cref="OkObjectResult"/> com <see cref="SuccessDTO"/> (contendo o novo token JWT) em caso de sucesso.</description></item>
+        /// <item><description><see cref="BadRequestObjectResult"/> com <see cref="ErrorDTO"/> se a requisição for inválida (senhas ausentes, não correspondentes, usuário não encontrado).</description></item>
+        /// <item><description><see cref="UnauthorizedResult"/> ou <see cref="UnauthorizedObjectResult"/> com <see cref="ErrorDTO"/> se a senha antiga estiver incorreta ou se o usuário não estiver autenticado.</description></item>
+        /// <item><description><see cref="StatusCodeResult"/> com <see cref="StatusCodes.Status500InternalServerError"/> com <see cref="ErrorDTO"/> em caso de erro interno no servidor.</description></item>
+        /// </list>
+        /// </returns>
+        /// <response code="200">Senha alterada com sucesso. Retorna um <see cref="SuccessDTO"/> com o novo token JWT.</response>
+        /// <response code="400">Dados da requisição inválidos (ex: senhas vazias, senhas não conferem) ou erro na identificação do usuário. Retorna <see cref="ErrorDTO"/>.</response>
+        /// <response code="401">Não autorizado (token JWT ausente ou inválido).</response>
+        /// <response code="403">Acesso negado (se o usuário não tiver permissão, embora não esteja explícito neste código).</response>
+        /// <response code="500">Erro interno do servidor durante a atualização da senha. Retorna <see cref="ErrorDTO"/>.</response>
+        [Authorize]
+        //[RequireHttps]
+        [HttpPatch("atualizar-senha")]
+        [ProducesResponseType(typeof(SuccessDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)] // 401 para falha de autenticação
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<SuccessDTO>> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            // Sugestão: Use ModelState.IsValid para validações básicas de DTO.
+            // As anotações [Required], [Compare] etc. no ChangePasswordRequest
+            // farão com que o ModelState.IsValid seja false se as validações falharem.
+            if (!ModelState.IsValid)
             {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO
                 {
-                    Message = "Requisição vazia."
+                    ErrorCode = "VALIDATION400",
+                    Message = "Dados da requisição inválidos.",
+                    ErrorDescription = string.Join("; ", ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage))
+                });
+            }
+            
+            ClaimsPrincipal claimsPrincipal = HttpContext.User; // Acessa o ClaimsPrincipal do usuário autenticado via [Authorize]
+
+            if (claimsPrincipal == null || !claimsPrincipal.Identity.IsAuthenticated)
+            {
+                // Isso geralmente não deveria acontecer se [Authorize] estiver funcionando,
+                // mas é um fallback seguro.
+                return Unauthorized(new ErrorDTO
+                {
+                    ErrorCode = "AUTH401",
+                    Message = "Não autorizado.",
+                    ErrorDescription = "Token de autenticação ausente ou inválido."
+                });
+            }
+            
+            var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: claimsPrincipal, _context);
+
+            if (user == null)
+            {
+                return Unauthorized(new ErrorDTO 
+                {
+                    ErrorCode = "USERAUTH401",
+                    Message = "Erro na identificação do usuário.",
+                    ErrorDescription = "O token de autenticação não corresponde a um usuário válido ou ativo."
+                });
+            }
+
+            // Validação da senha antiga
+            if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.Password))
+            {
+                return Unauthorized(new ErrorDTO
+                {
+                    ErrorCode = "AUTH401PASS",
+                    Message = "Senha antiga incorreta.",
+                    ErrorDescription = "A senha antiga fornecida não corresponde à senha registrada para o usuário."
                 });
             }
 
             try
             {
-                //Verificações de requisição
-                if (string.IsNullOrEmpty(request.OldPassword))
-                {
-                    return BadRequest("Senha anterior ausente.");
-                }
-
-                if (string.IsNullOrEmpty(request.NewPassword))
-                {
-                    return BadRequest("Senha nova ausente.");
-                }
-
-                if (!request.NewPassword.Equals(request.ConfirmPassword))
-                {
-                    return BadRequest("Senhas informadas não correspondem.");
-                }
-
-                //Verificações de usuário
-                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
-                if (user == null)
-                {
-                    return BadRequest(new
-                    {
-                        message = "Erro na identificação do usuário"
-                    });
-                }
-
-                if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.Password))
-                {
-                    return Unauthorized("Senha incorreta.");
-                }
-
-                //Update no banco de dados
-                var newPassword = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-                user.Password = newPassword;
+                // Update no banco de dados
+                var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+                user.Password = newPasswordHash;
                 await _context.SaveChangesAsync();
 
-                //Excluir instâncias de senhas
-                user.Password = "";
-                request.NewPassword = "";
-                request.OldPassword = "";
-                request.ConfirmPassword = "";
-
+                // Envia e-mail de notificação
                 await EmailServices.ChangePasswordAdvice(user, DateTime.Now);
 
-                token = TokenServices.GenerateToken(user);
-                return Ok(new { token });
+                // Gerar e retornar um novo token JWT
+                string newToken = TokenServices.GenerateToken(user);
+                return Ok(new SuccessDTO(newToken, "Token"));
+            }
+            catch (DbUpdateException dbEx) // Captura exceções específicas de banco de dados
+            {
+                //TODO: Log do erro
+                Console.WriteLine($"Erro de banco de dados ao atualizar senha: {dbEx.Message}");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
+                {
+                    ErrorCode = "DB500",
+                    Message = "Erro interno no servidor ao atualizar a senha.",
+                    ErrorDescription =
+                        "Ocorreu um erro ao persistir a nova senha no banco de dados. Tente novamente mais tarde."
+                });
             }
             catch (Exception ex)
             {
-                return BadRequest($"Erro na atualização: {ex.Message}");
+                //TODO: Log do erro
+                Console.WriteLine($"Erro inesperado ao atualizar senha: {ex.Message}");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
+                {
+                    ErrorCode = "GENERIC500",
+                    Message = "Ocorreu um erro inesperado ao processar a requisição.",
+                    ErrorDescription =
+                        "Por favor, tente novamente mais tarde. Se o problema persistir, contate o suporte."
+                });
             }
         }
 
         [Authorize]
-        [RequireHttps]
+        //[RequireHttps]
         [HttpPatch("atualizar-email")]
         public async Task<ActionResult<dynamic>> ChangeEmailRequest([FromHeader] string token, [FromBody] ChangeEmailRequest request)
         {

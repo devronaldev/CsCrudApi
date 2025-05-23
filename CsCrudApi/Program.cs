@@ -37,6 +37,31 @@ builder.Services.AddSwaggerGen(c=>
         Title = "API Conectando Saberes", Version = "0.2.0"
     });
     
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "JWT Authorization header using the Bearer scheme. \r\n\r\n Enter 'Bearer' [space] and then your token in the text input below.\r\n\r\nExample: \"Bearer 12345abcdef\"",
+    });
+
+   c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer" 
+                }
+            },
+            new string[] {} 
+        }
+    });
+    
     var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
 });
@@ -72,6 +97,7 @@ if (app.Environment.IsDevelopment() || Environment.GetEnvironmentVariable("ASPNE
     {
         c.SwaggerEndpoint("/swagger/Development/swagger.json", "API Conectando Saberes 0.2.0");
     });
+    
 
     app.UseCors("DevPolicy");
 }
