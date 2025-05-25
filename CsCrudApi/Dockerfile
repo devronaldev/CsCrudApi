@@ -9,7 +9,7 @@ RUN dotnet restore "./CsCrudApi/CsCrudApi.csproj"
 RUN dotnet nuget locals all --clear
 
 # Tenta restaurar os pacotes
-RUN dotnet restore "./CsCrudApi/CsCrudApi.csproj"
+RUN dotnet restore "./CsCrudApi.csproj"
 
 COPY . .
 WORKDIR "/src/CsCrudApi"
