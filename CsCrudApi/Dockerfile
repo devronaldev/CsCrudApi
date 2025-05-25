@@ -16,7 +16,7 @@ RUN dotnet restore "./CsCrudApi/CsCrudApi.csproj" # CUIDADO: Este era o ponto de
 # Limpa o cache de pacotes NuGet (boa prática, mas não é a causa do erro de "not found")
 RUN dotnet nuget locals all --clear
 
-# Copia todo o conteúdo do seu contexto de build (sua raiz do repo) para o WORKDIR (/src)
+# Copia o conteúdo do seu contexto de build (sua raiz do repo) para o WORKDIR (/src)
 # Isso trará todas as outras pastas (Controllers, Models, etc.) e o Dockerfile em si.
 COPY . .
 
