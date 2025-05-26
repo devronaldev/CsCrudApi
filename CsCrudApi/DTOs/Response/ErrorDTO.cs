@@ -1,21 +1,24 @@
 ﻿namespace CsCrudApi.DTOs;
 /// <summary>
-/// Representa um erro ocorrido durante o processamento da requisição.
+/// Objeto de Transferência de Dados (DTO) padrão para mensagens de erro da API.
 /// </summary>
 public record ErrorDTO
 {
     /// <summary>
-    /// Mensagem amigável explicando o erro.
+    /// Código de erro único para identificação programática.
     /// </summary>
-    public string Message { get; init; }
+    /// <example>BR400NULL</example>
+    public string ErrorCode { get; set; }
 
     /// <summary>
-    /// Código interno do erro, útil para tratamento no front-end ou logs.
+    /// Mensagem resumida do erro, para o usuário.
     /// </summary>
-    public string ErrorCode { get; init; }
+    /// <example>O e-mail não pode estar vazio.</example>
+    public string Message { get; set; }
 
     /// <summary>
-    /// Descrição mais técnica e detalhada do erro (opcional).
+    /// Descrição detalhada do erro, para o desenvolvedor ou suporte.
     /// </summary>
-    public string? ErrorDescription { get; init; }
+    /// <example>Verifique se o e-mail foi enviado na requisição.</example>
+    public string ErrorDescription { get; set; }
 }

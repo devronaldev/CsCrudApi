@@ -64,7 +64,8 @@ namespace CsCrudApi.Controllers
                 {
                     ErrorCode = "CITY404",
                     Message = "Cidade do usuário não encontrada.",
-                    ErrorDescription = $"A cidade associada ao usuário (ID: {user.CdCidade}) não foi encontrada ou está incorreta."
+                    ErrorDescription =
+                        $"A cidade associada ao usuário (ID: {user.CdCidade}) não foi encontrada ou está incorreta."
                 });
             }
 
@@ -76,7 +77,8 @@ namespace CsCrudApi.Controllers
                 {
                     ErrorCode = "CAMPUS404",
                     Message = "Campus do usuário não encontrado.",
-                    ErrorDescription = $"O campus associado ao usuário (ID: {user.CdCampus}) não foi encontrado ou está incorreto."
+                    ErrorDescription =
+                        $"O campus associado ao usuário (ID: {user.CdCampus}) não foi encontrado ou está incorreto."
                 });
             }
 
@@ -124,9 +126,6 @@ namespace CsCrudApi.Controllers
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<SuccessDTO>> ChangePassword([FromBody] ChangePasswordRequest request)
         {
-            // Sugestão: Use ModelState.IsValid para validações básicas de DTO.
-            // As anotações [Required], [Compare] etc. no ChangePasswordRequest
-            // farão com que o ModelState.IsValid seja false se as validações falharem.
             if (!ModelState.IsValid)
             {
                 return BadRequest(new ErrorDTO
@@ -138,13 +137,13 @@ namespace CsCrudApi.Controllers
                         .Select(e => e.ErrorMessage))
                 });
             }
-            
-            ClaimsPrincipal claimsPrincipal = HttpContext.User; // Acessa o ClaimsPrincipal do usuário autenticado via [Authorize]
+
+            ClaimsPrincipal
+                claimsPrincipal = HttpContext.User; // Acessa o ClaimsPrincipal do usuário autenticado via [Authorize]
 
             if (claimsPrincipal == null || !claimsPrincipal.Identity.IsAuthenticated)
             {
-                // Isso geralmente não deveria acontecer se [Authorize] estiver funcionando,
-                // mas é um fallback seguro.
+                // Isso não deve acontecer, mas é um fallback seguro.
                 return Unauthorized(new ErrorDTO
                 {
                     ErrorCode = "AUTH401",
@@ -152,12 +151,12 @@ namespace CsCrudApi.Controllers
                     ErrorDescription = "Token de autenticação ausente ou inválido."
                 });
             }
-            
+
             var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: claimsPrincipal, _context);
 
             if (user == null)
             {
-                return Unauthorized(new ErrorDTO 
+                return Unauthorized(new ErrorDTO
                 {
                     ErrorCode = "USERAUTH401",
                     Message = "Erro na identificação do usuário.",
@@ -216,41 +215,105 @@ namespace CsCrudApi.Controllers
             }
         }
 
+        /// <summary>
+        /// Solicita uma atualização de e-mail para o usuário autenticado.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint permite que um usuário autenticado solicite a alteração de seu e-mail.
+        /// Um e-mail de verificação será enviado para o novo endereço, contendo um token de confirmação.
+        /// O novo e-mail não pode ser igual ao e-mail atual do usuário.
+        /// </remarks>
+        /// <param name="request">Objeto contendo o novo e-mail e a confirmação do e-mail.</param>
+        /// <returns>
+        /// Retorna um status 200 OK em caso de sucesso, indicando que o e-mail de verificação foi enviado.
+        /// Retorna um status 400 Bad Request se os e-mails não forem fornecidos, não coincidirem, ou forem inválidos.
+        /// Retorna um status 401 Unauthorized se o token de autenticação for ausente ou inválido.
+        /// Retorna um status 404 Not Found se o usuário do token não for encontrado no sistema.
+        /// Retorna um status 409 Conflict se o novo e-mail for idêntico ao e-mail atual do usuário.
+        /// Retorna um status 500 Internal Server Error em caso de erro inesperado no servidor.
+        /// </returns>
+        /// <response code="200">Envio de e-mail de verificação realizado com sucesso.</response>
+        /// <response code="400">Dados inválidos (e-mails vazios, e-mails não coincidem, e-mail já existente ou formato inválido).</response>
+        /// <response code="401">Não autorizado (token ausente ou inválido).</response>
+        /// <response code="404">Usuário não encontrado.</response>
+        /// <response code="409">Novo e-mail é igual ao e-mail anterior.</response>
+        /// <response code="500">Erro inesperado do servidor.</response>
         [Authorize]
-        //[RequireHttps]
-        [HttpPatch("atualizar-email")]
-        public async Task<ActionResult<dynamic>> ChangeEmailRequest([FromHeader] string token, [FromBody] ChangeEmailRequest request)
+        //[RequireHttps] // Mantenha esta linha se você garantir HTTPS em outro nível (ex: Nginx, Load Balancer)
+        [HttpPatch("solicitar-atualizar-email")]
+        [ProducesResponseType(typeof(SuccessDTO), 200)]
+        [ProducesResponseType(typeof(ErrorDTO), 400)]
+        [ProducesResponseType(typeof(ErrorDTO), 401)]
+        [ProducesResponseType(typeof(ErrorDTO), 404)]
+        [ProducesResponseType(typeof(ErrorDTO), 409)]
+        [ProducesResponseType(typeof(string), 500)] // Ou ErrorDTO, dependendo de como você lida com 500s
+        public async Task<ActionResult<dynamic>> ChangeEmailRequest([FromBody] ChangeEmailRequest request)
         {
-            if (string.IsNullOrEmpty(token)) { NotFound(new { message = $"Erro: Token '{token}' vazio" }); }
+            // Validar e-mails
+            if (string.IsNullOrEmpty(request.Email))
+            {
+                return BadRequest(new ErrorDTO
+                {
+                    ErrorCode = "BR400NULL",
+                    ErrorDescription = "Verifique se o e-mail foi enviado na requisição.",
+                    Message = "O e-mail não pode estar vazio."
+                });
+            }
+
+            request.Email = request.Email.Trim().ToLower();
+            request.EmailConfirm = request.EmailConfirm.Trim().ToLower();
+
+            if (!string.Equals(request.EmailConfirm, request.Email))
+            {
+                return BadRequest(new ErrorDTO
+                {
+                    ErrorCode = "BR400NOTEQUAL",
+                    ErrorDescription = "Verifique se a validação da igualdade dos e-mails está correta.",
+                    Message = "Os endereços de e-mail não coincidem."
+                });
+            }
+
             try
             {
-                //Validar e-mails
-                if (string.IsNullOrEmpty(request.Email))
+                ClaimsPrincipal
+                    claimsPrincipal =
+                        HttpContext.User; // Acessa o ClaimsPrincipal do usuário autenticado via [Authorize]
+
+                if (claimsPrincipal == null || !claimsPrincipal.Identity.IsAuthenticated)
                 {
-                    return BadRequest("Erro: E-mail vazio");
-                }
-                if (!string.Equals(request.EmailConfirm, request.Email))
-                {
-                    return BadRequest("Erro: E-mails diferentes.");
+                    // Isso não deve acontecer, mas é um fallback seguro.
+                    return Unauthorized(new ErrorDTO
+                    {
+                        ErrorCode = "AUTH401",
+                        Message = "Não autorizado.",
+                        ErrorDescription = "Token de autenticação ausente ou inválido."
+                    });
                 }
 
-                //Verificações de usuário
-                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
+                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: claimsPrincipal, _context);
                 if (user == null)
                 {
-                    return BadRequest(new
+                    return NotFound(new ErrorDTO
                     {
-                        message = "Erro na identificação do usuário"
+                        ErrorCode = "404USER",
+                        ErrorDescription = "Verifique se o token está devidamente referenciado.",
+                        Message = "O usuário não foi encontrado."
                     });
                 }
 
                 if (user.Email.Equals(request.Email))
                 {
-                    //NÃO ACREDITO QUE VOU FAZER ISSO
-                    return Conflict("Erro: Novo e-mail não pode ser igual ao anterior");
+                    return Conflict(new ErrorDTO
+                    {
+                        ErrorCode = "409EMAIL",
+                        ErrorDescription = "O novo e-mail e o anterior são iguais.",
+                        Message = "Novo e-mail não pode ser igual ao anterior"
+                    });
                 }
 
-                await EmailServices.ChangeEmailAdvice(user, DateTime.Now, request.Email);
+                // Início da lógica para gerar e enviar o e-mail de verificação
+                await EmailServices.ChangeEmailAdvice(user, DateTime.Now,
+                    request.Email); // Envia um aviso ao e-mail antigo (opcional, mas boa prática)
 
                 var emailVerification = new EmailVerification
                 {
@@ -258,94 +321,234 @@ namespace CsCrudApi.Controllers
                     NewEmail = request.Email,
                     VerificationToken = TokenServices.GenerateGUIDString(),
                     CreatedAt = DateTime.Now,
-                    ExpiresAt = DateTime.Now.AddHours(1)
+                    ExpiresAt = DateTime.Now.AddHours(2)
                 };
 
                 _context.EmailVerifications.Add(emailVerification);
                 await _context.SaveChangesAsync();
 
-                user = new User();
-
-                await EmailServices.ChangeEmailVerification(emailVerification);
-                return Ok("Envio de e-mail de verificação realizado com sucesso.");
+                await EmailServices
+                    .ChangeEmailVerification(emailVerification); // Envia o e-mail com o link de verificação
+                return Ok(new SuccessDTO("Envio de e-mail de verificação realizado com sucesso.", "Message"));
             }
             catch (Exception ex)
             {
-                return BadRequest($"Erro: {ex.Message}");
+                return StatusCode(500, new ErrorDTO
+                {
+                    ErrorCode = "GENERIC500",
+                    ErrorDescription = "Qualquer tipo de exceção pode ter ocorrido.",
+                    Message = "Ocorreu um erro inesperado."
+                });
             }
         }
 
-        [Authorize]
+        /// <summary>
+        /// Confirma a troca de e-mail de um usuário.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint é utilizado para finalizar o processo de troca de e-mail de um usuário.
+        /// Ele valida um token de verificação (GUID) recebido por e-mail.
+        /// Se o token for válido e não expirado, e o novo e-mail não estiver em uso por outro usuário,
+        /// o e-mail do usuário será atualizado e o token de verificação será marcado como usado/expirado.
+        ///
+        /// **Atenção:** Embora o atributo `[Authorize]` esteja presente, o endpoint é acessado principalmente
+        /// através de um link de e-mail que contém o `GUID`. A autorização é mais uma camada de segurança
+        /// ou para casos onde o usuário já está logado e o token é validado novamente.
+        /// </remarks>
+        /// <param name="guid">O GUID (Global Unique Identifier) do token de verificação recebido por e-mail.</param>
+        /// <returns>
+        /// Retorna um status 200 OK em caso de sucesso na confirmação da troca de e-mail.
+        /// Retorna um status 400 Bad Request se o GUID não for fornecido ou for inválido.
+        /// Retorna um status 401 Unauthorized se o token de autenticação (Bearer) for ausente ou inválido.
+        /// Retorna um status 404 Not Found se o token de verificação ou o usuário associado não forem encontrados.
+        /// Retorna um status 409 Conflict se o novo e-mail já estiver em uso por outro usuário.
+        /// Retorna um status 410 Gone se o token de verificação tiver expirado.
+        /// Retorna um status 500 Internal Server Error em caso de erro inesperado no servidor.
+        /// </returns>
+        /// <response code="200">E-mail do usuário atualizado com sucesso.</response>
+        /// <response code="400">GUID não fornecido ou inválido.</response>
+        /// <response code="401">Não autorizado (token Bearer ausente ou inválido, se `[Authorize]` estiver ativo).</response>
+        /// <response code="404">Token de verificação não encontrado ou usuário associado não encontrado.</response>
+        /// <response code="409">O novo e-mail já está em uso por outro usuário.</response>
+        /// <response code="410">A requisição de troca de e-mail expirou.</response>
+        /// <response code="500">Erro inesperado do servidor.</response>
+        [AllowAnonymous]
         [RequireHttps]
-        [HttpPatch("trocar-email")]
-        public async Task<ActionResult<dynamic>> ChangeEmailVerification([FromQuery] string token)
+        [HttpPatch("confirmar-troca-email")]
+        [ProducesResponseType(200)] // Sem corpo de resposta explícito para OK
+        [ProducesResponseType(typeof(ErrorDTO), 400)] // Retorna string, mas idealmente seria um DTO
+        [ProducesResponseType(typeof(ErrorDTO), 401)]
+        [ProducesResponseType(typeof(ErrorDTO), 404)] // Retorna string, mas idealmente seria um DTO
+        [ProducesResponseType(typeof(ErrorDTO), 409)] // Retorna string, mas idealmente seria um DTO
+        [ProducesResponseType(typeof(ErrorDTO), 410)] // Retorna string, mas idealmente seria um DTO
+        [ProducesResponseType(typeof(string), 500)] // Ou ErrorDTO
+        public async Task<ActionResult<dynamic>> ChangeEmailValidation([FromQuery] string guid)
         {
-            var emailVerification = await _context.EmailVerifications.FirstOrDefaultAsync(e => e.VerificationToken == token);
+            if (string.IsNullOrEmpty(guid))
+            {
+                // Embora o FromQuery normalmente trate isso, é bom ter uma validação explícita.
+                return BadRequest(new ErrorDTO
+                {
+                    ErrorCode = "BR400GUIDNULL",
+                    Message = "O token de verificação (GUID) é obrigatório.",
+                    ErrorDescription = "O parâmetro 'guid' da query string não foi fornecido."
+                });
+            }
+
+            var emailVerification =
+                await _context.EmailVerifications.FirstOrDefaultAsync(e => e.VerificationToken == guid);
             if (emailVerification == null)
             {
-                return NotFound("Erro: Token inválido ou expirado");
+                return NotFound(new ErrorDTO
+                {
+                    ErrorCode = "404TOKEN",
+                    Message = "Erro: Token inválido.",
+                    ErrorDescription = "O token de verificação não foi encontrado no sistema ou já foi utilizado."
+                });
             }
+
             if (emailVerification.ExpiresAt < DateTime.Now)
             {
-                return StatusCode(410, "Erro: A requisição de troca de e-mail expirou.");
+                return StatusCode(410, new ErrorDTO
+                {
+                    ErrorCode = "410EXPIRED",
+                    Message = "Erro: A requisição de troca de e-mail expirou.",
+                    ErrorDescription = "O token de verificação fornecido já passou da data de validade."
+                });
             }
 
             int doesEmailExist = await _context.Users.CountAsync(u => u.Email == emailVerification.NewEmail);
-            if (doesEmailExist != 0)
+            if (doesEmailExist != 0) // Se CountAsync retornar > 0, significa que existe.
             {
-                return Conflict("Erro: O e-mail já está conectado a outro usuário.");
+                // Considerar se o e-mail pertence ao próprio usuário (caso ele tente confirmar o mesmo e-mail)
+                var currentUserWithEmail =
+                    await _context.Users.FirstOrDefaultAsync(u => u.Email == emailVerification.NewEmail);
+                if (currentUserWithEmail != null && currentUserWithEmail.UserId == emailVerification.UserId)
+                {
+                    // O e-mail que ele está tentando mudar É o e-mail atual dele, ou seja, não precisa mudar.
+                    // Dependendo do fluxo, pode ser OK ou um erro. Aqui, trataremos como OK.
+                    return Ok(new SuccessDTO("Seu e-mail já foi atualizado ou já é o e-mail desejado.", "Info"));
+                }
+
+                return Conflict(new ErrorDTO
+                {
+                    ErrorCode = "409EMAILINUSE",
+                    Message = "Erro: O e-mail já está conectado a outro usuário.",
+                    ErrorDescription = "O novo e-mail que você está tentando utilizar já está em uso por outra conta."
+                });
             }
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == emailVerification.UserId);
             if (user == null)
             {
-                return NotFound("Erro: Usuário não encontrado");
-            }
-
-            (emailVerification.NewEmail, user.Email) = (user.Email, emailVerification.NewEmail);
-            emailVerification.IsVerified = true;
-            emailVerification.ExpiresAt = DateTime.Now.AddMonths(1);
-
-            await _context.SaveChangesAsync();
-            return Ok();
-        }
-
-        [HttpPost("seguir/{userId}")]
-        public async Task<ActionResult<dynamic>> Follow([FromHeader] string token, [FromRoute] int userId)
-        {
-            if (string.IsNullOrEmpty(token))
-            {
-                return BadRequest(new
+                // Se o usuário associado ao token não existe, o token é inválido/órfão.
+                return NotFound(new ErrorDTO
                 {
-                    Message = "O token não pode estar vazio."
+                    ErrorCode = "404USERTOKEN",
+                    Message = "Erro: Usuário não encontrado para este token.",
+                    ErrorDescription = "O usuário associado ao token de verificação não existe."
                 });
             }
 
+            // Realiza a troca de e-mail
+            user.Email = emailVerification.NewEmail; // Atualiza o e-mail do usuário
+
+            // Marca o token de verificação como usado/expirado
+            emailVerification.IsVerified = true;
+            emailVerification.ExpiresAt = DateTime.Now; // Expira imediatamente após o uso
+            emailVerification.ExpiresAt = DateTime.Now.AddMonths(1); // Manter por 1 mês para auditoria
+            // TODO: Trigger de deleção após 1 mês
+
+            await _context.SaveChangesAsync();
+
+            // TODO: Enviar um e-mail de confirmação para o novo e-mail do usuário.
+            // await EmailServices.EmailChangedConfirmation(user.Email);
+
+            return Ok(new SuccessDTO("E-mail atualizado com sucesso!", "Success"));
+        }
+
+        /// <summary>
+        /// Permite que um usuário autenticado siga ou deixe de seguir outro usuário.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint gerencia a relação de "seguir" entre usuários.
+        /// O usuário que realiza a ação é automaticamente identificado através do token de autenticação
+        /// fornecido no cabeçalho da requisição, conforme definido pela política de autorização.
+        /// Se o usuário autenticado já segue (ou parou de seguir) o usuário alvo,
+        /// a relação será invertida (deixar de seguir ou voltar a seguir) e um status 204 No Content será retornado.
+        /// Se a relação de "seguir" não existe, uma nova será criada e um status 201 Created será retornado.
+        /// </remarks>
+        /// <param name="userId">O ID do usuário que será seguido ou deixado de seguir.</param>
+        /// <returns>
+        /// Retorna um status 201 Created se uma nova relação de "seguir" for estabelecida.
+        /// Retorna um status 204 No Content se uma relação existente for alternada (de seguir para não seguir, ou vice-versa).
+        /// Retorna um status 401 Unauthorized se o token de autenticação for ausente ou inválido.
+        /// Retorna um status 404 Not Found se o usuário autenticado ou o usuário alvo não forem encontrados.
+        /// Retorna um status 409 Conflict se o usuário tentar seguir a si mesmo.
+        /// Retorna um status 500 Internal Server Error em caso de erro inesperado no servidor.
+        /// </returns>
+        /// <response code="201">Nova relação de "seguir" criada com sucesso.</response>
+        /// <response code="204">Status da relação de "seguir" alternado com sucesso.</response>
+        /// <response code="401">Não autorizado (token JWT ausente ou inválido no cabeçalho `Authorization`).</response>
+        /// <response code="404">Usuário autenticado não encontrado ou usuário alvo não existe.</response>
+        /// <response code="409">Tentativa de seguir o próprio usuário.</response>
+        /// <response code="500">Erro interno do servidor.</response>
+        [Authorize]
+        [RequireHttps]
+        [HttpPost("seguir/{userId}")]
+        [ProducesResponseType(201)] // Para Created()
+        [ProducesResponseType(204)] // Para NoContent()
+        [ProducesResponseType(typeof(ErrorDTO), 401)]
+        [ProducesResponseType(typeof(ErrorDTO), 404)]
+        [ProducesResponseType(typeof(ErrorDTO), 409)]
+        [ProducesResponseType(typeof(ErrorDTO), 500)]
+        public async Task<ActionResult<dynamic>> Follow([FromRoute] int userId)
+        {
             try
             {
-                // Validação do token e obtenção do usuário autenticado
-                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+                // Acessa o ClaimsPrincipal do usuário autenticado via [Authorize]
+                ClaimsPrincipal claimsPrincipal = HttpContext.User;
+
+                // A validação de IsAuthenticated é redundante com [Authorize], mas é um bom fallback/segurança.
+                if (claimsPrincipal == null || !claimsPrincipal.Identity.IsAuthenticated)
+                {
+                    return Unauthorized(new ErrorDTO
+                    {
+                        ErrorCode = "AUTH401",
+                        Message = "Não autorizado.",
+                        ErrorDescription = "Token de autenticação ausente ou inválido."
+                    });
+                }
+
+                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: claimsPrincipal, _context);
                 if (user == null)
                 {
-                    return NotFound(new
+                    // Isso pode acontecer se o usuário foi excluído após a emissão do token.
+                    return NotFound(new ErrorDTO
                     {
-                        Message = "Usuário não encontrado."
+                        ErrorCode = "404USERAUTH",
+                        Message = "Usuário autenticado não encontrado.",
+                        ErrorDescription = "O usuário associado ao token de autenticação não foi encontrado no sistema."
                     });
                 }
 
                 if (user.UserId == userId)
                 {
-                    return Conflict(new
+                    return Conflict(new ErrorDTO
                     {
-                        Message = "O usuário não pode seguir a si mesmo."
+                        ErrorCode = "409SELF",
+                        Message = "O usuário não pode seguir a si mesmo.",
+                        ErrorDescription = "Tentativa de seguir o próprio usuário, o que não é permitido."
                     });
                 }
 
                 if (!await _context.Users.AnyAsync(u => u.UserId == userId))
                 {
-                    return NotFound(new
+                    return NotFound(new ErrorDTO
                     {
-                        Message = "Usuário a ser seguido não existe."
+                        ErrorCode = "404TARGETUSER",
+                        Message = "Usuário a ser seguido não existe.",
+                        ErrorDescription = "O ID do usuário alvo fornecido não corresponde a nenhum usuário existente."
                     });
                 }
 
@@ -355,17 +558,12 @@ namespace CsCrudApi.Controllers
 
                 if (follow != null)
                 {
+                    // Inverte o status: se estava seguindo, deixa de seguir; se não estava, passa a seguir.
                     follow.Status = !follow.Status;
                     follow.LastUpdatedAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
 
-                    return Ok(new
-                    {
-                        Message = follow.Status
-                            ? "Usuário seguido com sucesso."
-                            : "Você deixou de seguir o usuário.",
-                        Data = follow
-                    });
+                    return NoContent();
                 }
 
                 // Cria uma nova relação se não existir
@@ -373,7 +571,7 @@ namespace CsCrudApi.Controllers
                 {
                     CdFollowed = userId,
                     CdFollower = user.UserId,
-                    Status = true,
+                    Status = true, // Define como "seguindo" por padrão para nova relação
                     CreatedAt = DateTime.UtcNow,
                     LastUpdatedAt = DateTime.UtcNow
                 };
@@ -381,82 +579,74 @@ namespace CsCrudApi.Controllers
                 _context.UsersFollowing.Add(action);
                 await _context.SaveChangesAsync();
 
-                return Ok(new
-                {
-                    Message = "Usuário seguido com sucesso.",
-                    Data = action
-                });
+                return Created();
             }
             catch (Exception ex)
             {
-                // Mensagem genérica para segurança em produção
-                return StatusCode(500, new
+                return StatusCode(500, new ErrorDTO
                 {
-                    Message = "Ocorreu um erro interno. Tente novamente mais tarde.",
-                    Details = ex.Message
+                    ErrorCode = "500GENERIC",
+                    Message = "Ocorreu um erro interno no servidor. Tente novamente mais tarde.",
+                    ErrorDescription = "Erro inesperado." 
                 });
             }
         }
-
-
-        [Produces("application/json")]
-        [Consumes("multipart/form-data")]
-        [HttpPost("foto-perfil")]
-        public async Task<ActionResult> UpdateProfilePicture([FromBody] string profilePicture, [FromHeader] string token)
-        {
-            if(string.IsNullOrEmpty(profilePicture))
-            {
-                return BadRequest(new { message = "A foto de perfil é obrigatória." });
-            }
-
-            if (string.IsNullOrEmpty(token))
-            {
-                return BadRequest(new { message = "O token não pode estar vazio." });
-            }
-
-            try
-            {
-                // Validação Token
-                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
-                if (user == null)
-                {
-                    return NotFound("Token inválido/expirado ou usuário não encontrado.");
-                }
-                
-                user.ProfilePictureUrl = profilePicture;
-                await _context.SaveChangesAsync();
-
-                return Ok("Foto de perfil alterado com sucesso");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Erro inesperado. Detalhes: {ex.Message}");
-            }
-        }
-
+        
+        /// <summary>
+        /// Busca usuários pelo nome social.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint permite buscar usuários pelo nome social (NmSocial).
+        /// A busca retorna apenas usuários com o e-mail verificado (`IsEmailVerified = true`).
+        /// A paginação é suportada através dos parâmetros `pageNumber` e `pageSize`.
+        /// </remarks>
+        /// <param name="namePart">Parte do nome social a ser buscada (case-insensitive).</param>
+        /// <param name="pageNumber">Número da página a ser retornada (começa em 1).</param>
+        /// <param name="pageSize">Número de usuários por página (limite máximo de 10).</param>
+        /// <returns>
+        /// Retorna um status 200 OK com uma lista de usuários encontrados.
+        /// Retorna um status 400 Bad Request se o campo de busca estiver vazio ou os parâmetros de paginação forem inválidos.
+        /// Retorna um status 404 Not Found se nenhum usuário for encontrado com o critério de busca.
+        /// Retorna um status 500 Internal Server Error em caso de erro inesperado no servidor.
+        /// </returns>
+        /// <response code="200">Lista de usuários encontrados.</response>
+        /// <response code="400">Parâmetros de requisição inválidos (campo de busca vazio ou paginação fora dos limites).</response>
+        /// <response code="404">Nenhum usuário encontrado para o critério de busca.</response>
+        /// <response code="500">Erro interno do servidor.</response>
         [HttpGet("buscar")]
-        public async Task<ActionResult<List<object>>> SearchUsersByName([FromQuery] string namePart, int pageNumber, int pageSize)
+        [ProducesResponseType(typeof(List<SearchedUserInfo>), 200)]
+        [ProducesResponseType(typeof(ErrorDTO), 400)]
+        [ProducesResponseType(typeof(ErrorDTO), 404)]
+        [ProducesResponseType(typeof(ErrorDTO), 500)]
+        public async Task<ActionResult<List<object>>> SearchUsersByName(
+            [FromQuery] string namePart,
+            [FromQuery] int pageNumber,
+            [FromQuery] int pageSize)
         {
             if (string.IsNullOrEmpty(namePart))
             {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO
                 {
-                    Message = "O campo de busca não pode estar vazio."
+                    ErrorCode = "BR400NULL",
+                    Message = "O campo de busca não pode estar vazio.",
+                    ErrorDescription = "O parâmetro 'namePart' da query string é obrigatório."
                 });
             }
 
+            // Garante que pageSize esteja entre 1 e 10
             pageSize = pageSize > 10 ? 10 : (pageSize < 1 ? 1 : pageSize);
+            // Garante que pageNumber seja no mínimo 1
             pageNumber = pageNumber < 1 ? 1 : pageNumber;
 
             try
             {
-                var users = await _context.Users
-                    .Where(u => EF.Functions.Like(u.NmSocial, $"%{namePart}%")&& u.IsEmailVerified == true)
-                    .Select(u => new
+                List<SearchedUserInfo> users = await _context.Users
+                    .Where(u => EF.Functions.Like(u.NmSocial, $"%{namePart}%") && u.IsEmailVerified == true)
+                    .Select(u => new SearchedUserInfo
                     {
-                        Id = u.UserId,
-                        Nome = u.NmSocial,
-                        u.ProfilePictureUrl
+                        UserId = u.UserId,
+                        Name = u.NmSocial,         
+                        ProfilePicture = u.ProfilePictureUrl
                     })
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
@@ -464,9 +654,11 @@ namespace CsCrudApi.Controllers
 
                 if (users.Count == 0)
                 {
-                    return NotFound(new
+                    return NotFound(new ErrorDTO
                     {
-                        Message = "Nenhum usuário encontrado."
+                        ErrorCode = "404USERS",
+                        Message = "Nenhum usuário encontrado.",
+                        ErrorDescription = $"Nenhum usuário com 'NmSocial' contendo '{namePart}' foi encontrado."
                     });
                 }
 
@@ -474,7 +666,12 @@ namespace CsCrudApi.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro: {ex.Message}");
+                return StatusCode(500, new ErrorDTO
+                {
+                    ErrorCode = "500GENERIC",
+                    Message = "Ocorreu um erro interno no servidor. Tente novamente mais tarde.",
+                    ErrorDescription = "Erro inesperado e não tratado."
+                });
             }
         }
 
