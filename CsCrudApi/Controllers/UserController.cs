@@ -463,6 +463,7 @@ namespace CsCrudApi.Controllers
 
             // TODO: Enviar um e-mail de confirmação para o novo e-mail do usuário.
             // await EmailServices.EmailChangedConfirmation(user.Email);
+            // TODO: Enviar novo Token válido. 
 
             return Ok(new SuccessDTO("E-mail atualizado com sucesso!", "Success"));
         }
@@ -494,7 +495,7 @@ namespace CsCrudApi.Controllers
         /// <response code="409">Tentativa de seguir o próprio usuário.</response>
         /// <response code="500">Erro interno do servidor.</response>
         [Authorize]
-        [RequireHttps]
+        //[RequireHttps]
         [HttpPost("seguir/{userId}")]
         [ProducesResponseType(201)] // Para Created()
         [ProducesResponseType(204)] // Para NoContent()
@@ -552,26 +553,30 @@ namespace CsCrudApi.Controllers
                     });
                 }
 
-                // Busca por uma relação existente
-                var follow = await _context.UsersFollowing.SingleOrDefaultAsync(f =>
-                    f.CdFollower == user.UserId && f.CdFollowed == userId);
+                // BUSCA POR QUALQUER RELAÇÃO EXISTENTE, INDEPENDENTEMENTE DO STATUS
+                var follow = await _context.UsersFollowing
+                    .FirstOrDefaultAsync(f =>
+                        f.CdFollower == user.UserId &&
+                        f.CdFollowed == userId);
 
+                // Se uma relação EXISTE (Status=true ou Status=false)
                 if (follow != null)
                 {
-                    // Inverte o status: se estava seguindo, deixa de seguir; se não estava, passa a seguir.
+                    // Alterna o status
                     follow.Status = !follow.Status;
                     follow.LastUpdatedAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
 
+                    // Retorna 204 No Content pois o estado de um recurso existente foi alterado
                     return NoContent();
                 }
 
-                // Cria uma nova relação se não existir
+                // Se a relação NÃO EXISTE, cria uma nova
                 var action = new UserFollowingUser
                 {
                     CdFollowed = userId,
                     CdFollower = user.UserId,
-                    Status = true, // Define como "seguindo" por padrão para nova relação
+                    Status = true, // Uma nova relação é sempre de "seguindo" inicialmente
                     CreatedAt = DateTime.UtcNow,
                     LastUpdatedAt = DateTime.UtcNow
                 };
@@ -579,6 +584,7 @@ namespace CsCrudApi.Controllers
                 _context.UsersFollowing.Add(action);
                 await _context.SaveChangesAsync();
 
+                // Retorna 201 Created pois um novo recurso foi adicionado
                 return Created();
             }
             catch (Exception ex)

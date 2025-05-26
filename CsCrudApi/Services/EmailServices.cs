@@ -72,7 +72,7 @@ namespace CsCrudApi.Services
         {
             string rootRoute = EmailServices.GetRootRoute();
             var htmlContent = await GetHTMLContent("VerificationNewEmail");
-            string verificationLink = $"{rootRoute}api/User/trocar-email?token={emailVerification.VerificationToken}";
+            string verificationLink = $"{rootRoute}api/User/confirmar-troca-email?guid={emailVerification.VerificationToken}";
             string plainTextContent = $"Clique no link {verificationLink} para verificar o novo e-mail, caso não tenha sido você clique aqui para cancelar a requisição: FUTURO LINK" ;
             htmlContent = htmlContent.Replace("##LINK_VERIFICACAO##", verificationLink);
 
