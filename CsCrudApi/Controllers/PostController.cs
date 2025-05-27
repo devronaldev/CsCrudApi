@@ -3,6 +3,7 @@ using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.PostRelated.Requests;
 using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
+using CsCrudApi.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -17,8 +18,9 @@ namespace CsCrudApi.Controllers
         private readonly ApplicationDbContext _context;
         public PostController(ApplicationDbContext context) => _context = context;
 
+        /*
         [HttpPost("criar-post")]
-        public async Task<ActionResult<dynamic>> CreatePost([FromBody] PostRequest request, [FromHeader] string token)
+        public async Task<ActionResult<dynamic>> CreatePost([FromBody] PostRequestDTO request, [FromHeader] string token)
         {
             var post = request.Post;
             var categories = request.Categories;
@@ -130,6 +132,7 @@ namespace CsCrudApi.Controllers
                 }
             }
         }
+        */
 
         private async Task<ActionResult<dynamic>> RetryCreatePost(Post post, string token)
         {
@@ -166,91 +169,7 @@ namespace CsCrudApi.Controllers
                 return StatusCode(500, new { error = "Erro ao criar o post na segunda tentativa", details = ex.Message });
             }
         }
-
-        [HttpGet("feed")]
-        public async Task<ActionResult<dynamic>> Feed([FromHeader] string token, [FromQuery] int pageNumber, int pageSize)
-        {
-            if (string.IsNullOrEmpty(token))
-            {
-                return BadRequest(new
-                {
-                    message = "O Token não pode estar vazio."
-                });
-            }
-
-            // Ajustar o tamanho da página
-            pageSize = pageSize > 100 ? 100 : (pageSize < 5 ? 5 : pageSize);
-            pageNumber = pageNumber < 1 ? 1 : pageNumber;
-
-            try
-            {
-                // Validar o token e obter o usuário associado
-                var tokenData = TokenServices.ValidateJwtToken(token);
-                var user = await TokenServices.GetTokenUserAsync(tokenData, _context);
-
-                if (user == null)
-                {
-                    return NotFound(new
-                    {
-                        message = "O usuário não foi encontrado."
-                    });
-                }
-
-                var followingUserIds = await _context.UsersFollowing
-                    .Where(f => f.CdFollower == user.UserId)
-                    .Select(f => f.CdFollowed)
-                    .ToListAsync();
-
-                var usersRelated = await _context.Users
-                    .Where(u => u.CdCidade == user.CdCidade || u.CdCampus == user.CdCampus || u.CursoId == user.CursoId)
-                    .Select(u => u.UserId)
-                    .ToListAsync();
-
-                var posts = await _context.Posts
-                    .Where(p =>
-                        followingUserIds.Contains(p.UserId) || // Usuários que o atual segue
-                        usersRelated.Contains(p.UserId)) // Mesmo curso
-                    .OrderByDescending(p => p.PostDate) // Ordenar por data de postagem (mais recente primeiro)
-                    .Skip((pageNumber - 1) * pageSize) // Paginação
-                    .Take(pageSize) // Limitar pelo tamanho da página
-                    .ToListAsync();
-
-                posts = await CountLikesAsync(posts);
-
-                var postRequests = new List<PostRequestDTO>();
-                foreach (Post p in posts)
-                {
-                    var request = new PostRequestDTO
-                    {
-                        Post = p,
-                        Categories = await GetCategories(p.Guid)
-                    };
-                    postRequests.Add(request);
-                }
-
-                var listPosts = new List<FeedPost>();
-
-                foreach (var post in postRequests)
-                {
-                    listPosts.Add(new FeedPost
-                    {
-                        Post = post.Post,
-                        Categories = post.Categories,
-                        User = await GetUser(post.Post.UserId)
-                    });
-                }
-
-                return Ok(listPosts);
-            }
-            catch (Exception ex)
-            {
-                // Registrar o erro e retornar mensagem amigável
-                Console.Error.WriteLine($"Erro ao gerar feed: {ex}");
-                return StatusCode(500, new { message = "Um erro inesperado aconteceu.", error = ex.Message });
-            }
-        }
-
-
+        
         [HttpGet("{guid}")]
         public async Task<ActionResult<dynamic>> ShowPost([FromRoute] string guid)
         {
