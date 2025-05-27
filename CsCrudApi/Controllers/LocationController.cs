@@ -325,68 +325,6 @@ namespace CsCrudApi.Controllers
                 }); 
             }
         }
-
-        /// <summary>
-        /// Lista os alunos verificados associados a um campus específico.
-        /// </summary>
-        /// <remarks>
-        /// Este endpoint permite a recuperação de uma lista de usuários (alunos) que pertencem a um determinado campus
-        /// e que tiveram seus e-mails verificados.
-        /// </remarks>
-        /// <param name="campusId">O ID único do campus para o qual se deseja listar os alunos.</param>
-        /// <returns>Uma lista de objetos <see cref="SearchedUserInfo"/> representando os alunos encontrados.</returns>
-        /// <response code="200">Retorna a lista de alunos do campus com sucesso.</response>
-        /// <response code="400">O ID do campus fornecido é inválido.</response>
-        /// <response code="404">Nenhum aluno verificado foi encontrado para o ID de campus especificado.</response>
-        /// <response code="500">Ocorreu um erro interno no servidor.</response>
-        [HttpGet("alunos-por-campus/{campusId}")]
-        [AllowAnonymous]
-        [ProducesResponseType(typeof(IEnumerable<SearchedUserInfo>), 200)]
-        [ProducesResponseType(typeof(ErrorDTO), 400)]
-        [ProducesResponseType(typeof(ErrorDTO), 404)]
-        [ProducesResponseType(typeof(ErrorDTO), 500)]
-        public async Task<ActionResult<IEnumerable<SearchedUserInfo>>> GetUserByCampiId([FromRoute] int campusId)
-        {
-            try
-            {
-                if (campusId <= 0) 
-                {
-                    return BadRequest(new ErrorDTO
-                    {
-                        ErrorCode = "VAL400INVALIDCAMPUSID",
-                        Message = "ID do campus inválido.",
-                        ErrorDescription = "O ID fornecido para o campus deve ser um número inteiro positivo."
-                    });
-                }
-
-                var users = await _context.Users
-                    .Where(u => u.CdCampus == campusId && u.IsEmailVerified) 
-                    .Select(u => new SearchedUserInfo(u)) 
-                    .ToListAsync();
-                
-                if (!users.Any())
-                {
-                    return NotFound(new ErrorDTO
-                    {
-                        ErrorCode = "RES404STUDENTSNOTFOUND",
-                        Message = "Nenhum aluno verificado encontrado para este campus.",
-                        ErrorDescription =
-                            $"Não foram encontrados alunos verificados para o campus com ID: {campusId}."
-                    });
-                }
-
-                return Ok(users);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Erro ao obter alunos por campus: {ex.Message}");
-                return StatusCode(500, new ErrorDTO
-                {
-                    ErrorCode = "GEN500LISTSTUDENTSBYCAMPUS",
-                    Message = "Não foi possível listar os alunos para este campus.",
-                    ErrorDescription = "Ocorreu um erro inesperado ao buscar os alunos."
-                });
-            }
-        }
+        
     }
 }
