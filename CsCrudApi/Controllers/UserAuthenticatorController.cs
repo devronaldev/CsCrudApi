@@ -332,31 +332,7 @@ namespace CsCrudApi.Controllers
         {
            try
             {
-                var claimsPrincipal = TokenServices.ValidateJwtToken(token);
-                if (claimsPrincipal == null)
-                {
-                    return BadRequest(new ErrorDTO
-                    {
-                        ErrorCode = "BR400TOKEN",
-                        Message = "Erro: Token inválido ou não pode ser validado.",
-                        ErrorDescription = "O Token não apresenta 'Claims' válidas após ser validado."
-                    }); // TODO: Possibilitar retorno de CSHTML
-                    
-                }
-
-                var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimValueTypes.Email)?.Value;
-                if (string.IsNullOrEmpty(emailClaim))
-                {
-                    return BadRequest(new ErrorDTO
-                    {
-                        ErrorCode = "BR400TOKEN",
-                        Message = "Erro: Token inválido ou não pode ser validado.",
-                        ErrorDescription = "Não foi encontrado uma claim de e-mail."
-                    }); // TODO: Possibilitar retorno de CSHTML
-                }
-
-                var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == emailClaim);
+                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);;
                 if (user == null)
                 {
                     return NotFound(new ErrorDTO
