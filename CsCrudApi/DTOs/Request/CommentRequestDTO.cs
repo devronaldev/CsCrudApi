@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace CsCrudApi.DTOs.Request;
+namespace CsCrudApi.DTOs;
 
 /// <summary>
 /// Representa um comentário a ser criado ou atualizado.

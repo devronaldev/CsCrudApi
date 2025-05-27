@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace CsCrudApi.Models.UserRelated.Request
+namespace CsCrudApi.DTOs
 {
     /// <summary>
     /// Modelo para a requisição de solicitação de atualização de e-mail.

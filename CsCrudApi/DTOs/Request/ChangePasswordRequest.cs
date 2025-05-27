@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace CsCrudApi.Models.UserRelated.Request
+namespace CsCrudApi.DTOs
 {
     /// <summary>
     /// Representa os dados necessários para a requisição de alteração de senha do usuário.
