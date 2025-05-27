@@ -501,31 +501,6 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        [HttpGet("user/{userId}")]
-        public async Task<List<PostRequestDTO>> GetUserPosts([FromRoute] int userId, [FromQuery] int pageNumber, int pageSize)
-        {
-            var posts = await _context.Posts
-                .Where(p => p.UserId == userId)
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .OrderByDescending(p => p.PostDate)
-                .ToListAsync();
-
-            posts = await CountLikesAsync(posts);
-
-            var listPosts = new List<PostRequestDTO>();
-            foreach (Post p in posts)
-            {
-                var request = new PostRequestDTO
-                {
-                    Post = p,
-                    Categories = await GetCategories(p.Guid)
-                };
-                listPosts.Add(request);
-            }
-            return listPosts;
-        }
-
         [HttpPost("like/{postguid}")]
         public async Task<ActionResult<dynamic>> LikePost([FromRoute] string postguid, [FromHeader] string token)
         {
