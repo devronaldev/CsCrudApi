@@ -648,12 +648,7 @@ namespace CsCrudApi.Controllers
             {
                 List<SearchedUserInfo> users = await _context.Users
                     .Where(u => EF.Functions.Like(u.NmSocial, $"%{namePart}%") && u.IsEmailVerified == true)
-                    .Select(u => new SearchedUserInfo
-                    {
-                        UserId = u.UserId,
-                        Name = u.NmSocial,         
-                        ProfilePicture = u.ProfilePictureUrl
-                    })
+                    .Select(u => new SearchedUserInfo(u))
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();

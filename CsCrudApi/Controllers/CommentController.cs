@@ -180,12 +180,8 @@ namespace CsCrudApi.Controllers
                 foreach (var comment in comments)
                 {
                     var user = await _context.Users
-                        .Select(u => new SearchedUserInfo
-                        {
-                            UserId = u.UserId,
-                            Name = u.NmSocial,
-                            ProfilePicture = u.ProfilePictureUrl
-                        })
+                        .Select(u => new SearchedUserInfo(
+                        u))
                         .FirstOrDefaultAsync(u => u.UserId == comment.UserId);
 
                     result.Add(new CommentDetailsDTO
