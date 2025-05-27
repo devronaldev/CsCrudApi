@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CsCrudApi.Models.UserRelated.Request
+namespace CsCrudApi.Models.UserRelated
 {
     [Table("usuario_seguindo_usuario")]
     public class UserFollowingUser
