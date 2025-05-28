@@ -24,6 +24,10 @@ namespace CsCrudApi.Controllers
         /// <response code="200">Retorna uma lista de objetos CourseDTO se houver cursos.</response>
         /// <response code="204">Retorna No Content se não houver cursos disponíveis.</response>
         /// <response code="500">Retorna um objeto ErrorDTO em caso de exceção interna do servidor.</response>
+        [ProducesResponseType(typeof(CourseDTO), 200)]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(typeof(ErrorDTO), 404)]
+        [ProducesResponseType(typeof(ErrorDTO), 500)]
         [HttpGet]
         [AllowAnonymous]
         //[RequireHttps]
@@ -67,6 +71,10 @@ namespace CsCrudApi.Controllers
         /// <response code="500">Retorna um ErrorDTO em caso de exceção interna do servidor.</response>
         [AllowAnonymous]
         //[RequireHttps]
+        [ProducesResponseType(typeof(CourseDTO), 200)]
+        [ProducesResponseType(typeof(ErrorDTO), 404)]
+        [ProducesResponseType(typeof(ErrorDTO), 400)]
+        [ProducesResponseType(typeof(ErrorDTO), 500)]
         [HttpGet("{id}")]
         public async Task<ActionResult<CourseDTO>> GetCurso([FromRoute] int id)
         {
