@@ -41,12 +41,12 @@ namespace CsCrudApi.Controllers
         [HttpGet("posts")]
         [Authorize]
         [RequireHttps]
-        [ProducesResponseType(typeof(IEnumerable<PostRequestDTO>), 200)]
+        [ProducesResponseType(typeof(IEnumerable<PostResponseDTO>), 200)]
         [ProducesResponseType(typeof(ErrorDTO), 400)]
         [ProducesResponseType(typeof(ErrorDTO), 401)]
         [ProducesResponseType(typeof(ErrorDTO), 404)]
         [ProducesResponseType(typeof(ErrorDTO), 500)]
-        public async Task<ActionResult<IEnumerable<PostRequestDTO>>> Feed(
+        public async Task<ActionResult<IEnumerable<PostResponseDTO>>> Feed(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)
         {
@@ -89,7 +89,7 @@ namespace CsCrudApi.Controllers
                     .OrderByDescending(p => p.PostDate)
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
-                    .Select(p => new PostRequestDTO(p))
+                    .Select(p => new PostResponseDTO(p))
                     .ToListAsync();
 
                 if (!posts.Any())
@@ -103,7 +103,7 @@ namespace CsCrudApi.Controllers
                 }
                 
                 posts = await CountLikesAsync(posts);
-                foreach (PostRequestDTO post in posts)
+                foreach (PostResponseDTO post in posts)
                 {
                     post.Categories = await GetCategories(post.Post.Guid);
                 }
@@ -477,7 +477,7 @@ namespace CsCrudApi.Controllers
         }
         
         [NonAction]
-        public async Task<List<PostRequestDTO>> CountLikesAsync(List<PostRequestDTO> posts)
+        public async Task<List<PostResponseDTO>> CountLikesAsync(List<PostResponseDTO> posts)
         {
             foreach(var post in posts)
             {
