@@ -4,6 +4,7 @@ using CsCrudApi.Models.PostRelated.Requests;
 using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
 using CsCrudApi.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -286,7 +287,7 @@ namespace CsCrudApi.Controllers
             }
         }
 
-        [HttpGet("buscar")]
+        [HttpGet("buscar-por-titulo")]
         public async Task<ActionResult<List<object>>> SearchPostByTitle([FromQuery] string titlePart, int pageNumber, int pageSize)
         {
             if (string.IsNullOrEmpty(titlePart))
@@ -306,6 +307,75 @@ namespace CsCrudApi.Controllers
                     .Where(p => EF.Functions.Like(p.DcTitulo, $"%{titlePart}%"))
                     .OrderByDescending(p => p.PostDate)
                     .Skip((pageNumber - 1)* pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                posts = await CountLikesAsync(posts);
+
+                var postRequests = new List<PostRequestDTO>();
+                foreach (Post p in posts)
+                {
+                    var request = new PostRequestDTO
+                    {
+                        Post = p,
+                        Categories = await GetCategories(p.Guid)
+                    };
+                    postRequests.Add(request);
+                }
+
+                var listPosts = new List<FeedPost>();
+
+                foreach (var post in postRequests)
+                {
+                    listPosts.Add(new FeedPost
+                    {
+                        Post = post.Post,
+                        Categories = post.Categories,
+                        User = await GetUser(post.Post.UserId)
+                    });
+                }
+
+                return Ok(listPosts);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro: {ex.Message}");
+            }
+        }
+        
+        [Authorize]
+        // [RequireHttps]
+        [HttpGet("buscar-por-categorias")]
+        public async Task<ActionResult<dynamic>> GetPosts([FromQuery] string partName, int pageNumber = 1, int pageSize = 2)
+        {
+            if (string.IsNullOrEmpty(partName))
+            {
+                return BadRequest(new
+                {
+                    Message = "O campo de busca não pode estar vazio."
+                });
+            }
+
+            pageSize = pageSize > 20 ? 20 : (pageSize < 1 ? 10 : pageSize);
+            pageNumber = pageNumber < 1 ? 1 : pageNumber;
+
+            try
+            {
+                var categoriesId = await _context.Categories
+                    .Where(c => EF.Functions.Like(c.Name, $"%{partName}%"))
+                    .Select(c => c.Id)
+                    .ToListAsync(); 
+
+                if (!categoriesId.Any())
+                {
+                    return NotFound(new { message = "Nenhuma categoria encontrada com o filtro especificado." });
+                }
+
+                var posts = await _context.Posts
+                    .Where(p => _context.PostHasCategories
+                    .Any(pc => pc.PostGUID == p.Guid && categoriesId.Contains(pc.CategoryID)))
+                    .OrderByDescending(p => p.PostDate)
+                    .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
