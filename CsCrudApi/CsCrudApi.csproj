@@ -8,6 +8,8 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
+    <Version>0.2.0</Version>
+    <Authors>Ronald Pereira Evangelista</Authors>
   </PropertyGroup>
 
   <ItemGroup>
