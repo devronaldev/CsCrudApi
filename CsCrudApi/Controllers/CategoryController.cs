@@ -102,33 +102,7 @@ namespace CsCrudApi.Controllers
                 return StatusCode(500, $"Erro: {ex.Message}");
             }
         }
-
-        [HttpGet("cursos")]
-        public async Task<ActionResult<dynamic>> GetCursos() => await _context.Cursos.OrderBy(c => c.NmCourse).ToListAsync();
-
-        [HttpGet("curso/{id}")]
-        public async Task<ActionResult<dynamic>> GetCurso([FromRoute] int id)
-        {
-            if (id == 0)
-            {
-                return BadRequest(new
-                {
-                    Message = "O id não pode ser 0."
-                });
-            }
-            var c = await _context.Cursos.FirstOrDefaultAsync(c => c.IdCourse == id);
-            if (c == null)
-            {
-                return NotFound(new
-                {
-                    Message = "O curso não foi encontrado."
-                });
-            }
-            return Ok(c);
-        }
-
         
-
         [NonAction]
         public async Task<List<int>?> GetCategories(string guid)
         {
