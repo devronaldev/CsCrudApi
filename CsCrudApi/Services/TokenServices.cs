@@ -11,27 +11,50 @@ namespace CsCrudApi.Services
 {
     public static class TokenServices
     {
-
-        public static string GenerateToken(User user)
+        public static string GenerateToken(User user, ETokenType tokenType = ETokenType.Access)
         {
+            var time = tokenType == ETokenType.Access ? 2 : 720;
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = GetKey();
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(
                 [
-                    new Claim(ClaimTypes.Name, user.Name),
                     new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Role, user.TipoInteresse.ToString())
                 ]),
-                Expires = DateTime.UtcNow.AddHours(2),
+                Expires = DateTime.UtcNow.AddHours(time),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             }; 
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
-        public static byte[] GetKey()
+
+        public static RefreshToken GenerateRefreshToken(User user)
+        {
+            return new RefreshToken
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                UserId = user.UserId,
+                TokenHash = GenerateToken(user, ETokenType.Refresh),
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(30),
+                IsRevoked = false,
+                ReplacedByTokenId = null 
+            };
+        }
+        
+        public static string HashToken(string token)
+        {
+            return BCrypt.Net.BCrypt.HashPassword(token);
+        }
+
+        public static bool VerifyTokenHash(string token, string hashedToken)
+        {
+            return BCrypt.Net.BCrypt.Verify(token, hashedToken);
+        }
+        
+        private static byte[] GetKey()
         {
             var secret = Environment.GetEnvironmentVariable("SECRET");
 
@@ -86,10 +109,13 @@ namespace CsCrudApi.Services
             {
                 return null;
             }
-
             return await context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
         }
 
-        public static string GenerateGUIDString() => Guid.NewGuid().ToString("N");
+        public enum ETokenType
+        {
+            Access,
+            Refresh
+        }
     }
 }
