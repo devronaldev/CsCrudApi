@@ -249,7 +249,7 @@ namespace CsCrudApi.Controllers
                 {
                     UserId = user.UserId,
                     NewEmail = request.Email,
-                    VerificationToken = TokenServices.GenerateGUIDString(),
+                    VerificationToken = Guid.NewGuid().ToString("N"),
                     CreatedAt = DateTime.Now,
                     ExpiresAt = DateTime.Now.AddHours(2)
                 };

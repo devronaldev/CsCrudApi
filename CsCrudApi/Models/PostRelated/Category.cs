@@ -21,5 +21,10 @@ namespace CsCrudApi.Models.PostRelated
             Description = hashtag;
             Quantity = 0;
         }
+
+        public Category()
+        {
+            
+        }
     }
 }
