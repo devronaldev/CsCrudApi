@@ -3,48 +3,47 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using CsCrudApi.Models.UserRelated;
-using System.IdentityModel.Tokens.Jwt;
 using CsCrudApi.Services;
-using CsCrudApi.Models.UserRelated.Request;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using CsCrudApi.DTOs;
+using Microsoft.IdentityModel.Tokens;
 
 namespace CsCrudApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class UserAuthController : ControllerBase
+    public class AuthController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         
-        public UserAuthController(ApplicationDbContext context)
+        public AuthController(ApplicationDbContext context)
         {
             _context = context;
         }
         
         /// <summary>
-        /// Realiza o login de um usuário a partir do e-mail e senha fornecidos.
+        /// Realiza o loginRequest de um usuário a partir do e-mail e senha fornecidos.
         /// </summary>
-        /// <param name="login">Objeto contendo o e-mail e a senha do usuário.</param>
-        /// <returns>Token JWT como string no corpo da resposta, caso o login seja bem-sucedido.</returns>
+        /// <param name="loginRequest">Objeto contendo o e-mail e a senha do usuário.</param>
+        /// <returns>Token JWT como string no corpo da resposta, caso o loginRequest seja bem-sucedido.</returns>
         /// <remarks>
         /// O token JWT retornado deve ser utilizado no cabeçalho `Authorization` das requisições futuras:
         /// Authorization: Bearer {seu_token}
         /// </remarks>
-        /// <response code="200">Login bem-sucedido. Retorna o token JWT com validade de duas horas.</response>
+        /// <response code="200">Login bem-sucedido. Retorna o objeto LoginResponseDTO contendo o Access Token JWT (com validade de duas horas) e o Refresh Token.</response>
         /// <response code="400">Requisição inválida. Retorna um ErrorDTO com mais informações e uma mensagem amigável.</response>
         /// <response code="401">Senha inválida ou fora dos padrões. Retorna um ErrorDTO com mais informações e uma mensagem amigável.</response>
         /// <response code="404">O usuário não existe. Retorna um ErrorDTO com mais informações e uma mensagem amigável.</response>
         /// <response code="500">Erro interno no servidor.</response>
         [HttpPost("login")]
-        [ProducesResponseType(typeof(SuccessDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(LoginResponseDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
         [AllowAnonymous]
-        public async Task<ActionResult<SuccessDTO>> Login([FromBody] LoginDTO login)
+        public async Task<ActionResult<LoginResponseDTO>> Login([FromBody] LoginRequestDTO loginRequest)
         {
             if (!ModelState.IsValid)
             {
@@ -54,7 +53,7 @@ namespace CsCrudApi.Controllers
                     ErrorDescription = "Modelagem inválida. Requisição inválida."
                 });
             }
-            if (string.IsNullOrEmpty(login.Email))
+            if (string.IsNullOrEmpty(loginRequest.Email))
             {
                 return BadRequest(new ErrorDTO
                 {
@@ -63,7 +62,7 @@ namespace CsCrudApi.Controllers
                     ErrorDescription = "A requisição tem o valor de e-mail vazio ou nulo."
                 });
             }
-            if (string.IsNullOrEmpty(login.Password))
+            if (string.IsNullOrEmpty(loginRequest.Password))
             {
                 return Unauthorized(new ErrorDTO
                 {
@@ -72,17 +71,17 @@ namespace CsCrudApi.Controllers
                     ErrorDescription = "A requisição tem o valor de senha vazio ou nulo."
                 });
             }
-            if (login.Email.Length < 17)
+            if (loginRequest.Email.Length < 17)
             {
                 return BadRequest(new ErrorDTO
                 {
                     Message = "E-mail tem tamanho insuficiente",
                     ErrorCode = "BR400EMAIL",
-                    ErrorDescription = $"O e-mail tem apenas {login.Email.Length} caracteres. São necessários 17 caracteres ou mais."
+                    ErrorDescription = $"O e-mail tem apenas {loginRequest.Email.Length} caracteres. São necessários 17 caracteres ou mais."
                 });
             }
             var regex = new Regex(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?"":{}|<>])(?=.*[^a-zA-Z\d]).{8,}$");
-            if (!regex.IsMatch(login.Password))
+            if (!regex.IsMatch(loginRequest.Password))
             {
                 return Unauthorized(new ErrorDTO
                 {
@@ -93,7 +92,7 @@ namespace CsCrudApi.Controllers
             }
 
             var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == login.Email);
+                .FirstOrDefaultAsync(u => u.Email == loginRequest.Email);
             if (user == null) 
             {
                 return NotFound(new ErrorDTO
@@ -112,7 +111,7 @@ namespace CsCrudApi.Controllers
                     ErrorDescription = "O e-mail não foi corretamente verificado."
                 });
             }
-            if (!BCrypt.Net.BCrypt.Verify(login.Password, user.Password)) 
+            if (!BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.Password)) 
             {
                 return Unauthorized(new ErrorDTO
                 {
@@ -121,9 +120,180 @@ namespace CsCrudApi.Controllers
                     ErrorDescription = "A senha não foi devidamente verificada."
                 });
             }
-            var token = Services.TokenServices.GenerateToken(user);
-            user.Password = "";
-            return Ok(new SuccessDTO(token, "Token - Authorization"));
+            
+            var token = TokenServices.GenerateToken(user);
+            var refreshToken = TokenServices.GenerateRefreshToken(user);
+            
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax, 
+                Expires = refreshToken.ExpiresAt,
+                // Path = "/api/Auth/refresh",
+                // Domain = "yourdomain.com", Configurar futuramente.
+            };
+            Response.Cookies.Append("RefreshToken", refreshToken.TokenHash, cookieOptions);
+            
+            refreshToken.TokenHash = BCrypt.Net.BCrypt.HashPassword(refreshToken.TokenHash);
+            _context.RefreshTokens.Add(refreshToken);
+            await _context.SaveChangesAsync();
+            
+            var loginResponseDTO = new LoginResponseDTO
+            {
+                AccessToken = token,
+                AccessExpiresAt = DateTime.Now.AddHours(2),
+                RefreshExpiresAt = refreshToken.ExpiresAt,
+                TokenType = "Bearer"
+            };
+            
+            return Ok(loginResponseDTO);
+        }
+
+        /// <summary>
+        /// Renova o Access Token e o Refresh Token.
+        /// </summary>
+        /// <returns>Um novo Access Token e metadados de expiração.</returns>
+        /// <response code="200">Tokens renovados com sucesso.</response>
+        /// <response code="401">Refresh Token ausente, inválido, expirado ou revogado. Requer novo login.</response>
+        /// <response code="500">Ocorreu um erro interno inesperado no servidor.</response>
+        /// [RequireHttp]
+        [HttpPost("refresh")]
+        [ProducesResponseType(typeof(LoginResponseDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<LoginResponseDTO>> RefreshToken()
+        {
+            var refreshTokenJwt = HttpContext.Request.Cookies["RefreshToken"];
+            if (string.IsNullOrEmpty(refreshTokenJwt))
+            {
+                return Unauthorized(new ErrorDTO
+                {
+                    ErrorCode = "AUTH401REFRESHTOKENMISSING",
+                    ErrorDescription = "Refresh Token não encontrado nos cookies da requisição.",
+                    Message = "Sessão expirada. Faça login novamente."
+                });
+            }
+
+            try
+            {
+                ClaimsPrincipal? claimPrincipal = TokenServices.ValidateJwtToken(refreshTokenJwt);
+                if (claimPrincipal == null)
+                {
+                    return Unauthorized(new ErrorDTO
+                    {
+                        ErrorCode = "AUTH401REFRESHTOKENINVALID_JWT",
+                        ErrorDescription = "Refresh Token JWT inválido (assinatura ou formato).",
+                        Message = "Sessão inválida. Faça login novamente."
+                    });
+                }
+
+                var user = await TokenServices.GetTokenUserAsync(claimPrincipal, _context);
+                if (user == null)
+                {
+                    return Unauthorized(new ErrorDTO
+                    {
+                        ErrorCode = "AUTH401USERNOTFOUND_REFRESH",
+                        ErrorDescription = "Usuário associado ao Refresh Token não encontrado no banco de dados.",
+                        Message = "Sessão inválida. Faça login novamente."
+                    });
+                }
+
+                var storedRefreshToken = await _context.RefreshTokens
+                    .FirstOrDefaultAsync(rt =>
+                        rt.UserId == user.UserId && rt.IsRevoked == false &&
+                        TokenServices.VerifyTokenHash(refreshTokenJwt, rt.TokenHash));
+
+                if (storedRefreshToken == null)
+                {
+                    await RevokeAllRefreshTokensForUser(user.UserId); 
+                    return Unauthorized(new ErrorDTO
+                    {
+                        ErrorCode = "AUTH401REFRESHTOKEN_NOTFOUND_OR_REUSED",
+                        ErrorDescription =
+                            "Refresh Token não encontrado, já usado ou revogado. Todas as sessões foram encerradas.",
+                        Message = "Sessão inválida ou comprometida. Faça login novamente."
+                    });
+                }
+
+                if (storedRefreshToken.ExpiresAt < DateTime.UtcNow)
+                {
+                    storedRefreshToken.IsRevoked = true;
+                    await _context.SaveChangesAsync();
+                    return Unauthorized(new ErrorDTO
+                    {
+                        ErrorCode = "AUTH401REFRESHTOKEN_EXPIRED_DB",
+                        ErrorDescription = "Refresh Token expirado no banco de dados.",
+                        Message = "Sessão expirada. Faça login novamente."
+                    });
+                }
+
+                storedRefreshToken.IsRevoked = true;
+                
+                var newAccessTokenJwt = TokenServices.GenerateToken(user);
+                var newAccessExpiresAt = DateTime.UtcNow.AddHours(2);
+
+                var newRefreshTokenJwt = TokenServices.GenerateToken(user, TokenServices.ETokenType.Refresh);
+                var newRefreshExpiresAt = DateTime.UtcNow.AddDays(30);
+
+                var newRefreshTokenEntity = new RefreshToken
+                {
+                    Id = Guid.NewGuid().ToString("N"), 
+                    UserId = user.UserId,
+                    TokenHash = TokenServices.HashToken(newRefreshTokenJwt), 
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = newRefreshExpiresAt,
+                    IsRevoked = false,
+                    ReplacedByTokenId = null 
+                };
+
+                storedRefreshToken.ReplacedByTokenId = newRefreshTokenEntity.Id;
+
+                _context.RefreshTokens.Add(newRefreshTokenEntity);
+                _context.RefreshTokens.Update(storedRefreshToken); 
+
+                await _context.SaveChangesAsync();
+
+               var cookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = newRefreshExpiresAt,
+                    // Path = "/api/Auth/refresh",
+                    // Domain = "yourdomain.com", // Configurar futuramente.
+                };
+                Response.Cookies.Append("RefreshToken", newRefreshTokenJwt, cookieOptions);
+
+                var loginResponseDTO = new LoginResponseDTO
+                {
+                    AccessToken = newAccessTokenJwt,
+                    AccessExpiresAt = newAccessExpiresAt,
+                    RefreshExpiresAt = newRefreshExpiresAt,
+                    TokenType = "Bearer"
+                };
+
+                return Ok(loginResponseDTO);
+            }
+            catch (SecurityTokenExpiredException) 
+            {
+                return Unauthorized(new ErrorDTO
+                {
+                    ErrorCode = "AUTH401REFRESHTOKENEXPIRED_JWT",
+                    ErrorDescription = "Refresh Token JWT expirado.",
+                    Message = "Sessão expirada. Faça login novamente."
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro inesperado ao renovar token: {ex.Message} - {ex.StackTrace}");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
+                {
+                    Message = "Erro desconhecido ao gerar token de acesso.",
+                    ErrorCode = "SERVER500",
+                    ErrorDescription = ex.Message
+                });
+            }
         }
 
         /// <summary>
@@ -331,7 +501,7 @@ namespace CsCrudApi.Controllers
         public async Task<ActionResult<SuccessDTO>> VerifyEmail(string token)
         {
            try
-            {
+           {
                 var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);;
                 if (user == null)
                 {
@@ -348,16 +518,16 @@ namespace CsCrudApi.Controllers
                 await _context.SaveChangesAsync();
 
                 return Ok(new SuccessDTO("E-mail verificado com sucesso!"));
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new ErrorDTO
-                    {
-                        ErrorCode = "SERVER500",
-                        ErrorDescription = ex.Message,
-                        Message = $"Token inválido. Por favor, realizar novamente o login."
-                    });
-            }
+           }
+           catch (Exception ex)
+           {
+               return BadRequest(new ErrorDTO
+               {
+                   ErrorCode = "SERVER500",
+                   ErrorDescription = ex.Message,
+                   Message = $"Token inválido. Por favor, realizar novamente o login."
+               });
+           }
         }
 
         /// <summary>
@@ -441,6 +611,68 @@ namespace CsCrudApi.Controllers
                     Message = $"Erro na exclusão de registro."
                 });
             }
+        }
+
+        /// <summary>
+        /// Realiza o logout do usuário, invalidando todos os seus Refresh Tokens ativos.
+        /// </summary>
+        /// <returns>Um ActionResult indicando o sucesso da operação.</returns>
+        /// <response code="204">Logout bem-sucedido. Todos os Refresh Tokens do usuário foram invalidados.</response>
+        /// <response code="401">A requisição não foi autorizada (token JWT inválido ou ausente).</response>
+        /// <response code="500">Ocorreu um erro interno inesperado no servidor ao tentar processar o logout.</response>
+        [HttpPost("logout")]
+        [RequireHttps]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult> Logout()
+        {
+            ClaimsPrincipal claimsPrincipal = HttpContext.User;
+            try
+            {
+                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
+                if (user == null)
+                {
+                    // Este caso geralmente não deve acontecer se [Authorize] funciona, mas é uma salvaguarda.
+                    return Unauthorized(new ErrorDTO
+                    {
+                        ErrorCode = "AUTH401TOKENINVALID_JWT",
+                        ErrorDescription = "Token JWT inválido (assinatura ou formato) ou usuário não encontrado.",
+                        Message = "Sessão inválida."
+                    });
+                }
+
+                // Supondo que este método revoga os tokens no banco de dados
+                await RevokeAllRefreshTokensForUser(user.UserId);
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro no logout: {ex.Message} - {ex.StackTrace}");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
+                {
+                    ErrorCode = "SERVER500_LOGOUT", // Código de erro mais específico
+                    ErrorDescription = $"Erro inesperado ao processar o logout.",
+                    Message = "Não foi possível realizar o logout. Por favor, tente novamente."
+                });
+            }
+        }
+
+        [NonAction]
+        private async Task RevokeAllRefreshTokensForUser(int userId)
+        {
+            var tokensToRevoke = await _context.RefreshTokens
+                .Where(rt => rt.UserId == userId && !rt.IsRevoked)
+                .ToListAsync();
+
+            foreach (var token in tokensToRevoke)
+            {
+                token.IsRevoked = true;
+                _context.RefreshTokens.Update(token);
+            }
+            await _context.SaveChangesAsync();
         }
     }
 }
