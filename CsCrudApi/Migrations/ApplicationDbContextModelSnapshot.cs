@@ -305,6 +305,35 @@ namespace CsCrudApi.Migrations
                     b.ToTable("curso");
                 });
 
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.RefreshToken", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("ReplacedByTokenId")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RefreshTokens");
+                });
+
             modelBuilder.Entity("CsCrudApi.Models.UserRelated.Request.EmailVerification", b =>
                 {
                     b.Property<int>("Id")
@@ -342,35 +371,6 @@ namespace CsCrudApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("emailverification");
-                });
-
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.Request.UserFollowingUser", b =>
-                {
-                    b.Property<int>("CdFollower")
-                        .HasColumnType("int")
-                        .HasColumnName("cd_usuario_seguidor");
-
-                    b.Property<int>("CdFollowed")
-                        .HasColumnType("int")
-                        .HasColumnName("cd_usuario_seguido");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("seguido_em");
-
-                    b.Property<DateTime>("LastUpdatedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("ultima_atualizacao");
-
-                    b.Property<bool>("Status")
-                        .HasColumnType("tinyint(1)")
-                        .HasColumnName("status");
-
-                    b.HasKey("CdFollower", "CdFollowed");
-
-                    b.HasIndex("CdFollowed");
-
-                    b.ToTable("usuario_seguindo_usuario");
                 });
 
             modelBuilder.Entity("CsCrudApi.Models.UserRelated.User", b =>
@@ -450,6 +450,35 @@ namespace CsCrudApi.Migrations
                     b.ToTable("usuario");
                 });
 
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.UserFollowingUser", b =>
+                {
+                    b.Property<int>("CdFollower")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_usuario_seguidor");
+
+                    b.Property<int>("CdFollowed")
+                        .HasColumnType("int")
+                        .HasColumnName("cd_usuario_seguido");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("seguido_em");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("ultima_atualizacao");
+
+                    b.Property<bool>("Status")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("status");
+
+                    b.HasKey("CdFollower", "CdFollowed");
+
+                    b.HasIndex("CdFollowed");
+
+                    b.ToTable("usuario_seguindo_usuario");
+                });
+
             modelBuilder.Entity("CsCrudApi.Models.PostRelated.Commentary", b =>
                 {
                     b.HasOne("CsCrudApi.Models.PostRelated.Post", null)
@@ -504,7 +533,7 @@ namespace CsCrudApi.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CsCrudApi.Models.UserRelated.Request.UserFollowingUser", b =>
+            modelBuilder.Entity("CsCrudApi.Models.UserRelated.UserFollowingUser", b =>
                 {
                     b.HasOne("CsCrudApi.Models.UserRelated.User", null)
                         .WithMany()

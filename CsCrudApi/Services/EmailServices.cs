@@ -43,7 +43,7 @@ namespace CsCrudApi.Services
         //E-MAILs DE VERIFICAÇÃO:
         public static async Task SendVerificationEmail(User user)
         {
-            var token = TokenServices.GenerateToken(user); // Gerando o token para o usuário
+            var token = TokenServices.GenerateToken(user); 
             string rootRoute = EmailServices.GetRootRoute();
             
             //TROCAR URL POR VARIÁVEL DE AMBIENTE
