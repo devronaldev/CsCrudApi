@@ -1,12 +1,11 @@
-﻿using CsCrudApi.Models;
+﻿using System.Security.Claims;
+using CsCrudApi.Models;
 using CsCrudApi.Models.PostRelated;
 using CsCrudApi.Models.PostRelated.Requests;
-using CsCrudApi.Models.UserRelated;
 using CsCrudApi.Services;
 using CsCrudApi.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -19,286 +18,322 @@ namespace CsCrudApi.Controllers
         private readonly ApplicationDbContext _context;
         public PostController(ApplicationDbContext context) => _context = context;
 
-        /*
+        /// <summary>
+        /// Cria um novo post no sistema.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint permite que um usuário autenticado crie diferentes tipos de posts.
+        /// Um post do tipo 'flash' não requer um título, enquanto outros tipos sim.
+        /// O post pode ser associado a categorias existentes ou novas categorias podem ser criadas e associadas.
+        /// Requer autenticação (Bearer Token) e é altamente recomendado usar HTTPS.
+        /// </remarks>
+        /// <param name="request">Os dados do post a ser criado.</param>
+        /// <response code="200">Retorna o PostResponseDTO com os detalhes do post criado e suas categorias.</response>
+        /// <response code="400">Retorna um ErrorDTO para requisições inválidas, validações falhas ou problemas de identificação do usuário.</response>
+        /// <response code="401">Indica que o cliente não está autenticado.</response>
+        /// <response code="500">Retorna um ErrorDTO em caso de exceção interna do servidor.</response>
+        [Authorize]
+        // [RequireHttps] 
         [HttpPost("criar-post")]
-        public async Task<ActionResult<dynamic>> CreatePost([FromBody] PostRequestDTO request, [FromHeader] string token)
+        [ProducesResponseType(typeof(PostResponseDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(401)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<PostResponseDTO>> CreatePost([FromBody] PostRequestDTO request)
         {
-            var post = request.Post;
-            var categories = request.Categories;
-
-            if (token == null)
+            if (!ModelState.IsValid)
             {
-                return BadRequest("Token vazio.");
-            }
-
-            if (post == null)
-            {
-                return BadRequest("Solicitação sem post.");
-            }
-
-            if (post.Type != ETypePost.flash && string.IsNullOrEmpty(post.DcTitulo))
-            {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO
                 {
-                    message = "Qualquer post que não seja do tipo rápido precisa de título."
+                    ErrorCode = "VAL400INVALIDREQUEST",
+                    ErrorDescription = "Dados da requisição são inválidos.",
+                    Message = "Verifique os dados enviados para o post.",
                 });
             }
 
-            if(post.ExternalLink == null)
+            if (request.Type != ETypePost.flash && string.IsNullOrEmpty(request.Title))
             {
-                post.ExternalLink = string.Empty;
+                return BadRequest(new ErrorDTO
+                {
+                    ErrorCode = "VAL400TITLEMISSING",
+                    ErrorDescription = "O título é obrigatório para posts que não sejam do tipo 'flash'.",
+                    Message = "Um título é necessário para este tipo de post."
+                });
             }
-
-            post.QuantityLikes = 0;
-            post.PostDate = DateTime.Now;
-            post.Guid = TokenServices.GenerateGUIDString();
 
             try
             {
-                //Verificações de usuário
-                User? user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
+                var claimsPrincipal = HttpContext.User;
+                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
                 if (user == null)
                 {
-                    return BadRequest(new
+                    return BadRequest(new ErrorDTO
                     {
-                        message = "Erro na identificação do usuário"
+                        ErrorCode = "AUTH400USERNOTFOUND",
+                        ErrorDescription = "O usuário associado ao token não foi encontrado no sistema.",
+                        Message = "Erro na identificação do usuário. Verifique suas credenciais."
                     });
                 }
 
+                var post = (Post)request;
                 post.UserId = user.UserId;
                 _context.Posts.Add(post);
 
-                if (categories != null && categories.Any())
+                if (request.Categories.Any())
                 {
-                    // Obter categorias existentes
+                    // Busca por categorias existentes baseadas nas descrições fornecidas
                     var existingCategories = await _context.Categories
-                        .Where(c => categories.Contains(c.Description))
+                        .Where(c => request.Categories.Contains(c.Description))
                         .ToListAsync();
 
-                    // Criar novas categorias
-                    var newCategories = categories
-                        .Where(categoryDesc => !existingCategories.Any(c => c.Description == categoryDesc))
-                        .Select(categoryDesc => new Category
-                        {
-                            Name = string.Join(" ", categoryDesc.Split('-')), // Nome amigável
-                            Description = categoryDesc,
-                            Quantity = 1 // Inicia com 1, pois está sendo usada neste post
-                        })
+                    // Identifica e cria novas categorias que não existem no banco
+                    var newCategories = request.Categories
+                        .Where(categoryDescription => !existingCategories.Any(c =>
+                            c.Description.Equals(categoryDescription,
+                                StringComparison.OrdinalIgnoreCase))) // Comparação case-insensitive
+                        .Select(categoryDescription => new Category(categoryDescription))
                         .ToList();
 
-                    // Adicionar novas categorias ao contexto
                     if (newCategories.Any())
                     {
                         _context.Categories.AddRange(newCategories);
-                        await _context.SaveChangesAsync(); // Salvar para gerar os IDs
                     }
 
-                    // Atualizar a lista de categorias existentes com as recém-criadas
-                    existingCategories.AddRange(newCategories);
-
-                    // Criar associações entre Post e Categoria
+                    
+                    if (newCategories.Any())
+                    {
+                        await _context.SaveChangesAsync();
+                        existingCategories.AddRange(newCategories);
+                    }
+                    
+                    // Cria associações entre o Post e as Categorias (existentes e recém-criadas)
                     foreach (var category in existingCategories)
                     {
-                        // Incrementar a quantidade de categorias existentes
-                        if (categories.Contains(category.Description))
-                        {
-                            category.Quantity++;
-                        }
-
                         _context.PostHasCategories.Add(new PostHasCategory
                         {
                             PostGUID = post.Guid,
-                            CategoryID = category.Id // Agora `Id` está garantido
+                            CategoryID = category.Id
                         });
                     }
                 }
 
-                // Salvar as alterações no banco
                 await _context.SaveChangesAsync();
-
-                return Ok(post); // Retorna o post criado
-
+                
+                return Ok(new PostResponseDTO
+                {
+                    Post = post,
+                    Categories = await GetCategories(post.Guid)
+                });
             }
             catch (Exception ex)
             {
-                if (ex.InnerException is SqlException sqlEx && sqlEx.Number == 2601)
+                Console.WriteLine($"Erro ao criar post: {ex.Message} - {ex.StackTrace}");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
                 {
-                    return await RetryCreatePost(post, token);
-                }
-                else
-                {
-                    Console.WriteLine("Erro não relacionado a SQL/Unicidade: " + ex.Message);
-                    // Registra o erro e retorna uma mensagem amigável
-                    return StatusCode(500, "Se chegou aqui, entrego nas mãos do senhor. Detalhes: " + ex.Message);
-                }
-            }
-        }
-        */
-
-        private async Task<ActionResult<dynamic>> RetryCreatePost(Post post, string token)
-        {
-            if (string.IsNullOrEmpty(token))
-            {
-                return BadRequest(new
-                {
-                    message = "Token vazio."
+                    ErrorCode = "GEN500CREATEPOST",
+                    ErrorDescription = "Ocorreu um erro interno inesperado ao tentar criar o post.",
+                    Message = "Não foi possível criar o post. Por favor, tente novamente mais tarde.",
                 });
             }
-
-            //Verificações de usuário
-            var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
-            if (user == null)
-            {
-                return BadRequest(new
-                {
-                    message = "Erro na identificação do usuário"
-                });
-            }
-
-            try
-            {
-                post.Guid = TokenServices.GenerateGUIDString();
-                post.UserId = user.UserId;
-                // Adiciona o novo post
-                _context.Posts.Add(post);
-                await _context.SaveChangesAsync();
-                return Ok(new { message = "Post criado com sucesso após colisão de GUID", post });
-            }
-            catch (Exception ex)
-            {
-                // Lança exceções se a segunda tentativa também falhar
-                return StatusCode(500, new { error = "Erro ao criar o post na segunda tentativa", details = ex.Message });
-            }
         }
-        
+
+        /// <summary>
+        /// Retorna um post específico pelo seu GUID.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint permite a recuperação detalhada de um post, incluindo informações do usuário que o criou e do campus associado.
+        /// </remarks>
+        /// <param name="guid">O GUID único do post a ser recuperado sem hífens.</param>
+        /// <response code="200">Retorna o objeto PostSearchByGuidDTO contendo o post, o usuário e as informações do campus.</response>
+        /// <response code="400">Retorna um ErrorDTO se o GUID fornecido for inválido (nulo, vazio ou com comprimento incorreto).</response>
+        /// <response code="404">Retorna um ErrorDTO se o post, o usuário ou o campus associado não for encontrado.</response>
+        /// <response code="500">Retorna um ErrorDTO em caso de exceção interna do servidor.</response>
         [HttpGet("{guid}")]
-        public async Task<ActionResult<dynamic>> ShowPost([FromRoute] string guid)
+        [ProducesResponseType(typeof(PostSearchByGuidDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<PostResponseDTO>> GetPost([FromRoute] string guid)
         {
-            if (guid == null)
-            {
-                return BadRequest(new { message = "Post não informado." });
-            }
-            if (guid.Length != 32)
-            {
-                return BadRequest(new { message = "Guid inválido." });
-            }
-
-            var post = await _context.Posts.FirstOrDefaultAsync(p => p.Guid == guid);
-            if (post == null)
-            {
-                return NotFound(new { message = "Post não encontrado" });
-            }
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == post.UserId);
-            if (user == null)
-            {
-                return NotFound(new { message = "Usuário não encontrado." });
-            }
-
-            var campus = await _context.Campi.FirstOrDefaultAsync(c => c.Id == user.CdCampus);
-            if (campus == null)
-            {
-                return NotFound(new
-                {
-                    Message = "Campus não encontrado."
-                });
-            }
-            post.QuantityLikes = await CountLikesAsync(post.Guid);
-            var userFiltered = new
-            {
-                userId = user.UserId,
-                nmAutor = user.NmSocial,
-                grauEscolaridade = user.GrauEscolaridade,
-                nmInstituicao = $"{campus.SgCampus} - {campus.CampusName}",
-                cursoId = user.CursoId,
-                tipoInteresse = user.TipoInteresse,
-                user.ProfilePictureUrl
-            };
-
-            return Ok(new
-            {
-                // ftPerfil = user.ftPerfil
-                User = userFiltered,
-                Post = post,
-                Categories = await GetCategories(post.Guid)
-            });
-        }
-
-        [HttpDelete("delete/{guid}")]
-        public async Task<ActionResult<dynamic>> DeletePost([FromRoute] string guid, [FromHeader] string token)
-        {
-            if (guid == null || guid.Length != 32)
-            {
-                return BadRequest(new
-                {
-                    Message = "O guid não pode estar vazio."
-                });
-            }
-
-            if (token == null)
-            {
-                return BadRequest(new
-                {
-                    Message = "O token não pode ser vazio."
-                });
-            }
-
             try
             {
-                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);
+                if (string.IsNullOrEmpty(guid) || guid.Length != 32)
+                {
+                    return BadRequest(new ErrorDTO
+                    {
+                        ErrorCode = "VAL400INVALIDGUID",
+                        ErrorDescription =
+                            "O GUID do post é inválido. Ele não pode ser vazio e deve ter o formato correto (32 caracteres hexadecimais).",
+                        Message = "O identificador do post fornecido é inválido."
+                    });
+                }
 
+                var post = await _context.Posts.FirstOrDefaultAsync(p => p.Guid == guid); // Use parsedGuid
+                if (post == null)
+                {
+                    return NotFound(new ErrorDTO
+                    {
+                        ErrorCode = "RES404POSTNOTFOUND",
+                        ErrorDescription = $"Post com GUID '{guid}' não encontrado.",
+                        Message = "O post solicitado não foi encontrado."
+                    });
+                }
+                var postResponse = new PostResponseDTO(post);
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == post.UserId);
                 if (user == null)
                 {
-                    return Unauthorized(new
+                    return NotFound(new ErrorDTO
                     {
-                        Message = "Token não válido ou expirado."
+                        ErrorCode = "RES404USERNOTFOUND",
+                        ErrorDescription = $"Usuário com ID '{post.UserId}' associado ao post não encontrado.",
+                        Message = "O usuário criador do post não foi encontrado."
+                    });
+                }
+                
+                var campus = await _context.Campi.FirstOrDefaultAsync(c => c.Id == user.CdCampus);
+                if (campus == null)
+                {
+                    return NotFound(new ErrorDTO
+                    {
+                        ErrorCode = "RES404CAMPUSNOTFOUND",
+                        ErrorDescription = $"Campus com ID '{user.CdCampus}' associado ao usuário não encontrado.",
+                        Message = "O campus associado ao usuário não foi encontrado."
+                    });
+                }
+                var campusResponse = new CampusResponseDTO(campus);
+
+                return Ok(new PostSearchByGuidDTO(campusResponse, user, postResponse));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Erro ao buscar post por GUID '{guid}': {e.Message} - {e.StackTrace}");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
+                {
+                    ErrorCode = "GEN500GETPOST",
+                    ErrorDescription = $"Ocorreu um erro interno inesperado ao tentar buscar o post com GUID '{guid}'.",
+                    Message = "Um erro inesperado ocorreu ao tentar obter o post."
+                });
+            }
+        }
+
+        /// <summary>
+        /// Exclui um post através do seu GUID.
+        /// </summary>
+        /// <param name="guid">O identificador único (GUID) do post a ser excluído.</param>
+        /// <returns>Um ActionResult indicando o resultado da operação de exclusão.</returns>
+        /// <response code="204">O post foi excluído com sucesso.</response>
+        /// <response code="400">O GUID fornecido é inválido ou vazio.</response>
+        /// <response code="401">O token de autenticação é inválido ou expirado.</response>
+        /// <response code="403">O usuário autenticado não possui permissão para excluir este post.</response>
+        /// <response code="404">O post com o GUID especificado não foi encontrado.</response>
+        /// <response code="500">Ocorreu um erro inesperado no servidor.</response>
+        [Authorize]
+        // [RequireHttps]
+        [HttpDelete("delete/{guid}")]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(typeof(ErrorDTO), 400)]
+        [ProducesResponseType(typeof(ErrorDTO), 401)]
+        [ProducesResponseType(typeof(ErrorDTO), 403)]
+        [ProducesResponseType(typeof(ErrorDTO), 404)]
+        [ProducesResponseType(typeof(ErrorDTO), 500)]
+        public async Task<ActionResult> DeletePost([FromRoute] string guid)
+        {
+            if (string.IsNullOrEmpty(guid) || guid.Length != 32)
+            {
+                return BadRequest(new ErrorDTO
+                {
+                    ErrorCode = "VAL400GUIDINVALID",
+                    ErrorDescription = "O GUID fornecido na rota está vazio ou não possui 32 caracteres.",
+                    Message = "O GUID do post é inválido."
+                });
+            }
+
+            ClaimsPrincipal claimsPrincipal = HttpContext.User;
+
+            try
+            {
+                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
+                if (user == null)
+                {
+                    return Unauthorized(new ErrorDTO
+                    {
+                        ErrorCode = "AUTH401TOKENINVALID",
+                        ErrorDescription = "O token de autenticação não é válido ou está expirado, ou o usuário não foi encontrado.",
+                        Message = "Token de autenticação inválido ou expirado."
                     });
                 }
 
                 var post = await _context.Posts.FirstOrDefaultAsync(post => post.Guid == guid);
                 if (post == null)
                 {
-                    return NotFound(new
+                    return NotFound(new ErrorDTO
                     {
+                        ErrorCode = "DATA404POSTNOTFOUND",
+                        ErrorDescription = $"Nenhum post foi encontrado com o GUID: {guid}.",
                         Message = "O post não foi encontrado."
                     });
                 }
 
                 if (post.UserId != user.UserId)
                 {
-                    return StatusCode(403, new
+                    return StatusCode(403, new ErrorDTO
                     {
+                        ErrorCode = "AUTH403PERMISSIONDENIED",
+                        ErrorDescription = $"O usuário {user.UserId} tentou excluir o post {post.Guid} que pertence ao usuário {post.UserId}.",
                         Message = "Você não tem permissão para excluir esse post."
                     });
                 }
 
                 _context.Posts.Remove(post);
                 await _context.SaveChangesAsync();
-                return Ok(new
-                {
-                    Message = "O post foi devidamente excluído."
-                });
+                return NoContent();
 
-            } catch (Exception ex) {
-                return StatusCode(500, new
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao excluir post: {ex.Message} - {ex.StackTrace}");
+                return StatusCode(500, new ErrorDTO
                 {
-                    Message = $"Erro inesperado. Confira detalhes: {ex.Message}."
+                    ErrorCode = "GEN500DELETEPOST",
+                    ErrorDescription ="Ocorreu um erro interno inesperado ao tentar excluir o post.",
+                    Message = "Não foi possível excluir o post. Por favor, tente novamente mais tarde."
                 });
             }
         }
 
+        /// <summary>
+        /// Busca posts por uma parte do título.
+        /// </summary>
+        /// <param name="titlePart">A parte do título a ser buscada.</param>
+        /// <param name="pageNumber">O número da página para paginação (padrão: 1).</param>
+        /// <param name="pageSize">O tamanho da página para paginação (padrão: 5, máximo: 20).</param>
+        /// <returns>Uma lista de posts que contêm a parte do título especificada.</returns>
+        /// <response code="200">Retorna a lista de posts encontrados.</response>
+        /// <response code="400">O campo de busca está vazio ou inválido.</response>
+        /// <response code="500">Ocorreu um erro interno inesperado no servidor.</response>
+        [Authorize]
+        //[RequireHttps]
         [HttpGet("buscar-por-titulo")]
-        public async Task<ActionResult<List<object>>> SearchPostByTitle([FromQuery] string titlePart, int pageNumber, int pageSize)
+        [ProducesResponseType(typeof(List<SearchedPostDTO>), 200)]
+        [ProducesResponseType(typeof(ErrorDTO), 400)]
+        [ProducesResponseType(typeof(ErrorDTO), 500)]
+        public async Task<ActionResult<List<SearchedPostDTO>>> SearchPostByTitle([FromQuery] string titlePart,
+            int pageNumber = 1, int pageSize = 5)
         {
             if (string.IsNullOrEmpty(titlePart))
             {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO
                 {
+                    ErrorCode = "VAL400TITLEPARTEMPTY",
+                    ErrorDescription = "O parâmetro 'titlePart' da query está vazio ou nulo.",
                     Message = "O campo de busca não pode estar vazio."
                 });
             }
 
+            // Garante que o tamanho da página não exceda 20 e seja no mínimo 1.
             pageSize = pageSize > 20 ? 20 : (pageSize < 1 ? 10 : pageSize);
+            // Garante que o número da página seja no mínimo 1.
             pageNumber = pageNumber < 1 ? 1 : pageNumber;
 
             try
@@ -306,52 +341,55 @@ namespace CsCrudApi.Controllers
                 var posts = await _context.Posts
                     .Where(p => EF.Functions.Like(p.DcTitulo, $"%{titlePart}%"))
                     .OrderByDescending(p => p.PostDate)
-                    .Skip((pageNumber - 1)* pageSize)
+                    .Select(p => new SearchedPostDTO(p))
+                    .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                posts = await CountLikesAsync(posts);
-
-                var postRequests = new List<PostRequestDTO>();
-                foreach (Post p in posts)
-                {
-                    var request = new PostRequestDTO
-                    {
-                        Post = p,
-                        Categories = await GetCategories(p.Guid)
-                    };
-                    postRequests.Add(request);
-                }
-
-                var listPosts = new List<FeedPost>();
-
-                foreach (var post in postRequests)
-                {
-                    listPosts.Add(new FeedPost
-                    {
-                        Post = post.Post,
-                        Categories = post.Categories,
-                        User = await GetUser(post.Post.UserId)
-                    });
-                }
-
-                return Ok(listPosts);
+                return Ok(posts);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro: {ex.Message}");
+                Console.WriteLine($"Erro inesperado ao buscar posts por título: {ex.Message} - {ex.StackTrace}");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
+                {
+                    ErrorCode = "GEN500SEARCHPOSTTITLE",
+                    ErrorDescription =
+                        $"Ocorreu um erro interno inesperado ao tentar buscar posts por título.",
+                    Message = "Não foi possível realizar a busca por título. Por favor, tente novamente mais tarde."
+                });
             }
         }
-        
+
+        /// <summary>
+        /// Busca posts associados a categorias cujos nomes contêm uma parte específica.
+        /// </summary>
+        /// <param name="partName">A parte do nome da categoria a ser buscada.</param>
+        /// <param name="pageNumber">O número da página para paginação (padrão: 1).</param>
+        /// <param name="pageSize">O tamanho da página para paginação (padrão: 2, máximo: 20).</param>
+        /// <returns>Uma lista paginada de posts que pertencem a categorias encontradas.</returns>
+        /// <response code="200">Retorna a lista de posts encontrados.</response>
+        /// <response code="400">O campo de busca está vazio.</response>
+        /// <response code="401">O usuário não está autenticado.</response>
+        /// <response code="404">Nenhuma categoria ou post encontrado com o filtro especificado.</response>
+        /// <response code="500">Ocorreu um erro interno inesperado no servidor.</response>
         [Authorize]
         // [RequireHttps]
         [HttpGet("buscar-por-categorias")]
-        public async Task<ActionResult<dynamic>> GetPosts([FromQuery] string partName, int pageNumber = 1, int pageSize = 2)
+        [ProducesResponseType(typeof(List<SearchedPostDTO>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<List<SearchedPostDTO>>> GetPosts([FromQuery] string partName, int pageNumber = 1,
+            int pageSize = 2)
         {
             if (string.IsNullOrEmpty(partName))
             {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO 
                 {
+                    ErrorCode = "VAL400CATEGORYPARTEMPTY",
+                    ErrorDescription = "O parâmetro 'partName' da query está vazio ou nulo.",
                     Message = "O campo de busca não pode estar vazio."
                 });
             }
@@ -364,62 +402,74 @@ namespace CsCrudApi.Controllers
                 var categoriesId = await _context.Categories
                     .Where(c => EF.Functions.Like(c.Name, $"%{partName}%"))
                     .Select(c => c.Id)
-                    .ToListAsync(); 
+                    .ToListAsync();
 
                 if (!categoriesId.Any())
                 {
-                    return NotFound(new { message = "Nenhuma categoria encontrada com o filtro especificado." });
+                    return NotFound(new ErrorDTO
+                    {
+                        ErrorCode = "DATA404CATEGORYNOTFOUND",
+                        ErrorDescription = $"Nenhuma categoria encontrada com a parte do nome: '{partName}'.",
+                        Message = "Nenhuma categoria encontrada com o filtro especificado."
+                    });
                 }
 
                 var posts = await _context.Posts
-                    .Where(p => _context.PostHasCategories
-                    .Any(pc => pc.PostGUID == p.Guid && categoriesId.Contains(pc.CategoryID)))
+                    .Where(p => _context.PostHasCategories.Any(pc =>
+                        pc.PostGUID == p.Guid && categoriesId.Contains(pc.CategoryID)))
                     .OrderByDescending(p => p.PostDate)
+                    .Select(p => new SearchedPostDTO(p))
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                posts = await CountLikesAsync(posts);
-
-                var postRequests = new List<PostRequestDTO>();
-                foreach (Post p in posts)
+                if (!posts.Any())
                 {
-                    var request = new PostRequestDTO
-                    {
-                        Post = p,
-                        Categories = await GetCategories(p.Guid)
-                    };
-                    postRequests.Add(request);
+                    return NoContent();
                 }
-
-                var listPosts = new List<FeedPost>();
-
-                foreach (var post in postRequests)
-                {
-                    listPosts.Add(new FeedPost
-                    {
-                        Post = post.Post,
-                        Categories = post.Categories,
-                        User = await GetUser(post.Post.UserId)
-                    });
-                }
-
-                return Ok(listPosts);
+                
+                return Ok(posts);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro: {ex.Message}");
+                Console.WriteLine($"Erro inesperado ao buscar posts por categorias: {ex.Message} - {ex.StackTrace}");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new ErrorDTO 
+                    {
+                        ErrorCode = "GEN500SEARCHPOSTBYCATEGORY",
+                        ErrorDescription =
+                            $"Ocorreu um erro interno inesperado ao tentar buscar posts por categoria.",
+                        Message =
+                            "Não foi possível realizar a busca por categoria. Por favor, tente novamente mais tarde."
+                    });
             }
         }
 
+        /// <summary>
+        /// Busca posts associados a uma categoria específica pelo seu ID.
+        /// </summary>
+        /// <param name="categoryId">O ID da categoria para a qual os posts serão buscados.</param>
+        /// <param name="pageNumber">O número da página para paginação (padrão: 1).</param>
+        /// <param name="pageSize">O tamanho da página para paginação (padrão: 5, máximo: 20).</param>
+        /// <returns>Uma lista paginada de posts que pertencem à categoria especificada.</returns>
+        /// <response code="200">Retorna a lista de posts encontrados.</response>
+        /// <response code="400">O ID da categoria fornecido é inválido (igual a 0).</response>
+        /// <response code="500">Ocorreu um erro interno inesperado no servidor.</response>
         [HttpGet("buscar/{categoryId}")]
-        public async Task<ActionResult<List<object>>> SearchPostByCategory([FromRoute] int categoryId, [FromQuery] int pageNumber, int pageSize)
+        [ProducesResponseType(typeof(List<SearchedPostDTO>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<List<SearchedPostDTO>>> SearchPostByCategory([FromRoute] int categoryId,
+            [FromQuery] int pageNumber = 1, int pageSize = 5)
         {
-            if (categoryId == 0)
+            if (categoryId ==
+                0) // Validando se o categoryId é 0, que geralmente é um valor inválido para IDs de banco de dados.
             {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO
                 {
-                    Message = "O campo de busca não pode estar vazio."
+                    ErrorCode = "VAL400CATEGORYIDINVALID",
+                    ErrorDescription = "O 'categoryId' fornecido na rota é inválido (igual a zero).",
+                    Message = "O ID da categoria não pode ser zero."
                 });
             }
 
@@ -428,128 +478,98 @@ namespace CsCrudApi.Controllers
 
             try
             {
-                var postGuids = await _context.PostHasCategories
-                    .Where(a => a.CategoryID == categoryId)
-                    .Select(a => a.PostGUID)
-                    .Distinct()
-                    .ToListAsync();
-
-                if (postGuids.Count == 0)
-                {
-                    return NotFound(new
-                    {
-                        Message = "Nenhum post com a categoria encontrado."
-                    });
-                }
-
                 var posts = await _context.Posts
-                    .Where(p => postGuids.Contains(p.Guid))
-                    .OrderByDescending(p => p.PostDate) // Ordenar por data decrescente
+                    .Where(p => _context.PostHasCategories.Any(pc =>
+                        pc.PostGUID == p.Guid && pc.CategoryID == categoryId))
+                    .OrderByDescending(p => p.PostDate)
+                    .Select(p => new SearchedPostDTO(p))
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                if(posts.Count == 0)
+                if (!posts.Any())
                 {
-                    return NotFound(new
-                    {
-                        Message = "Nenhum post encontrado na página especificada."
-                    });
+                    return NoContent();
                 }
-
-                posts = await CountLikesAsync(posts);
-
-                var postRequests = new List<PostRequestDTO>();
-                foreach (Post p in posts)
-                {
-                    var request = new PostRequestDTO
-                    {
-                        Post = p,
-                        Categories = await GetCategories(p.Guid)
-                    };
-                    postRequests.Add(request);
-                }
-
-                var listPosts = new List<FeedPost>();
-
-                foreach (var post in postRequests)
-                {
-                    listPosts.Add(new FeedPost
-                    {
-                        Post = post.Post,
-                        Categories = post.Categories,
-                        User = await GetUser(post.Post.UserId)
-                    });
-                }
-
-                return Ok(listPosts);
+                
+                return Ok(posts);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro: {ex.Message}");
+                Console.WriteLine($"Erro inesperado ao buscar posts por categoria ID: {ex.Message} - {ex.StackTrace}");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
+                {
+                    ErrorCode = "GEN500SEARCHPOSTBYCATEGORYID",
+                    ErrorDescription =
+                        $"Ocorreu um erro interno inesperado ao tentar buscar posts pela categoria ID {categoryId}.",
+                    Message = "Não foi possível realizar a busca por categoria. Por favor, tente novamente mais tarde."
+                });
             }
         }
 
-        [HttpPost("like/{postguid}")]
-        public async Task<ActionResult<dynamic>> LikePost([FromRoute] string postguid, [FromHeader] string token)
+        /// <summary>
+        /// Adiciona um 'like' a um post, ou atualiza o estado de um 'like' existente (ativa/desativa).
+        /// </summary>
+        /// <param name="guid">O GUID (identificador único) do post a ser 'curtido' ou cujo 'like' será atualizado.</param>
+        /// <returns>Um ActionResult indicando o resultado da operação de 'like'.</returns>
+        /// <response code="200">O 'like' foi adicionado ou atualizado com sucesso.</response>
+        /// <response code="400">O GUID do post é nulo ou inválido, ou houve um erro na identificação do usuário.</response>
+        /// <response code="401">O usuário não está autenticado.</response>
+        /// <response code="500">Ocorreu um erro interno inesperado no servidor.</response>
+        [HttpPost("like/{guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<dynamic>> LikePost([FromRoute] string guid)
         {
-            if (postguid.IsNullOrEmpty())
+            if (string.IsNullOrEmpty(guid) || guid.Length != 32)
             {
-                return BadRequest(new
+                return BadRequest(new ErrorDTO
                 {
-                    message = "Post nulo ou inválido."
+                    ErrorCode = "VAL400POSTGUIDINVALID",
+                    ErrorDescription = "O GUID do post fornecido na rota está nulo ou não possui 32 caracteres.",
+                    Message = "Post nulo ou inválido."
                 });
             }
 
-            if (token.IsNullOrEmpty())
-            {
-                return BadRequest(new
-                {
-                    message = "Token nulo ou vazio."
-                });
-            }
-
-            //Verificações de usuário
-            var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: TokenServices.ValidateJwtToken(token), _context);
-            if (user == null)
-            {
-                return BadRequest(new
-                {
-                    message = "Erro na identificação do usuário"
-                });
-            }
-
-            var like = await _context.PostLikes
-            .FirstOrDefaultAsync(pl => pl.PostGuid == postguid && pl.UserId == user.UserId);
-            if (like != null)
-            {
-                like.UpdatedAt = DateTime.UtcNow;
-
-                if (like.IsActive == false)
-                {
-                    like.IsActive = true;
-                }
-                else
-                {
-                    like.IsActive = false;
-                }
-
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    Message = "O like foi atualizado"
-                });
-            }
+            var claimsPrincipal = HttpContext.User;
 
             try
             {
+                //Verificações de usuário
+                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
+                if (user == null)
+                {
+                    return Unauthorized(new ErrorDTO
+                    {
+                        ErrorCode = "AUTH401USERIDENTIFICATIONFAILED",
+                        ErrorDescription =
+                            "O token de autenticação não é válido ou o usuário associado não foi encontrado.",
+                        Message = "Erro na identificação do usuário. Verifique suas credenciais."
+                    });
+                }
+
+                var like = await _context.PostLikes
+                    .FirstOrDefaultAsync(pl => pl.PostGuid == guid && pl.UserId == user.UserId);
+                if (like != null)
+                {
+                    like.UpdatedAt = DateTime.UtcNow;
+                    like.IsActive = !like.IsActive;
+
+                    await _context.SaveChangesAsync();
+
+                    return Ok(new
+                    {
+                        Message = "O status do 'like' foi atualizado com sucesso."
+                    });
+                }
 
                 UserLikesPost newLike = new()
                 {
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    PostGuid = postguid,
+                    PostGuid = guid,
                     UserId = user.UserId,
                     IsActive = true,
                 };
@@ -561,9 +581,16 @@ namespace CsCrudApi.Controllers
                     Message = "Like adicionado com sucesso."
                 });
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                return BadRequest(new { Message = $"Erro inesperado: {ex}" });
+                Console.WriteLine($"Erro inesperado ao dar 'like' no post: {e.Message} - {e.StackTrace}");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
+                {
+                    ErrorCode = "GEN500LIKEPOST",
+                    ErrorDescription =
+                        $"Ocorreu um erro interno inesperado ao tentar dar 'like' no post.",
+                    Message = "Não foi possível processar o 'like'. Por favor, tente novamente mais tarde."
+                });
             }
         }
 
@@ -578,10 +605,9 @@ namespace CsCrudApi.Controllers
         }
 
         [NonAction]
-        public async Task<int> CountLikesAsync(string postGuid)
+        private async Task<int> CountLikesAsync(string postGuid)
         {
-            int count = await _context.PostLikes.Where(l => l.PostGuid == postGuid).CountAsync();
-            return count;
+            return await _context.PostLikes.Where(l => l.PostGuid == postGuid).CountAsync();
         }
 
         [NonAction]
@@ -596,7 +622,7 @@ namespace CsCrudApi.Controllers
         }
 
         [NonAction]
-        public async Task<List<int>?> GetCategories(string guid)
+        private async Task<List<int>?> GetCategories(string guid)
         {
             if (guid.IsNullOrEmpty())
             {
@@ -611,22 +637,6 @@ namespace CsCrudApi.Controllers
                 dcCategories.Add(category.CategoryID);
             }
             return dcCategories;
-        }
-
-        [NonAction]
-        public async Task<object> GetUser(int userId)
-        {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
-
-            return new
-            {
-                user.NmSocial,
-                user.TipoInteresse,
-                user.CdCampus,
-                user.UserId,
-                user.GrauEscolaridade,
-                user.ProfilePictureUrl,
-            };
         }
     }
 }
