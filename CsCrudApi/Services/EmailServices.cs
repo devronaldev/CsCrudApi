@@ -90,9 +90,9 @@ namespace CsCrudApi.Services
 
         //IMPLEMENTAR PARA MODO "ESQUECEU A SENHA"
         /*
-        public static async Task SendPasswordChangeEmail (LoginDTO user)
+        public static async Task SendPasswordChangeEmail (LoginRequestDTO user)
         {
-            LoginDTO loginDTO = new LoginDTO() { Email = user.Email, Password = user.Password};
+            LoginRequestDTO loginDTO = new LoginRequestDTO() { Email = user.Email, Password = user.Password};
         }
         */
 
