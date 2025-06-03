@@ -149,6 +149,51 @@ namespace CsCrudApi.Controllers
             
             return Ok(loginResponseDTO);
         }
+        
+        /// <summary>
+        /// Realiza o logout do usuário, invalidando todos os seus Refresh Tokens ativos.
+        /// </summary>
+        /// <returns>Um ActionResult indicando o sucesso da operação.</returns>
+        /// <response code="204">Logout bem-sucedido. Todos os Refresh Tokens do usuário foram invalidados.</response>
+        /// <response code="401">A requisição não foi autorizada (token JWT inválido ou ausente).</response>
+        /// <response code="500">Ocorreu um erro interno inesperado no servidor ao tentar processar o logout.</response>
+        [HttpPost("logout")]
+        [RequireHttps]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult> Logout()
+        {
+            ClaimsPrincipal claimsPrincipal = HttpContext.User;
+            try
+            {
+                var userEmail =  TokenServices.GetTokenEmailAsync(claimsPrincipal);
+                var user = _context.Users.FirstOrDefault(u => u.Email == userEmail);
+                if (user == null)
+                {
+                    return Unauthorized(new ErrorDTO
+                    {
+                        ErrorCode = "AUTH401TOKENINVALID_JWT",
+                        ErrorDescription = "Token JWT inválido (assinatura ou formato) ou usuário não encontrado.",
+                        Message = "Sessão inválida."
+                    });
+                }
+                await RevokeAllRefreshTokensForUser(user.UserId);
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro no logout: {ex.Message} - {ex.StackTrace}");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
+                {
+                    ErrorCode = "SERVER500_LOGOUT",
+                    ErrorDescription = $"Erro inesperado ao processar o logout.",
+                    Message = "Não foi possível realizar o logout. Por favor, tente novamente."
+                });
+            }
+        }
 
         /// <summary>
         /// Renova o Access Token e o Refresh Token.
@@ -177,8 +222,8 @@ namespace CsCrudApi.Controllers
 
             try
             {
-                ClaimsPrincipal? claimPrincipal = TokenServices.ValidateJwtToken(refreshTokenJwt);
-                if (claimPrincipal == null)
+                ClaimsPrincipal? claimsPrincipal = TokenServices.ValidateJwtToken(refreshTokenJwt);
+                if (claimsPrincipal == null)
                 {
                     return Unauthorized(new ErrorDTO
                     {
@@ -188,7 +233,8 @@ namespace CsCrudApi.Controllers
                     });
                 }
 
-                var user = await TokenServices.GetTokenUserAsync(claimPrincipal, _context);
+                var userEmail =  TokenServices.GetTokenEmailAsync(claimsPrincipal);
+                var user = _context.Users.FirstOrDefault(u => u.Email == userEmail);
                 if (user == null)
                 {
                     return Unauthorized(new ErrorDTO
@@ -502,7 +548,8 @@ namespace CsCrudApi.Controllers
         {
            try
            {
-                var user = await TokenServices.GetTokenUserAsync(TokenServices.ValidateJwtToken(token), _context);;
+               var userEmail =  TokenServices.GetTokenEmailAsync(TokenServices.ValidateJwtToken(token));
+               var user = _context.Users.FirstOrDefault(u => u.Email == userEmail);
                 if (user == null)
                 {
                     return NotFound(new ErrorDTO
@@ -609,53 +656,6 @@ namespace CsCrudApi.Controllers
                     ErrorCode = "SERVER500",
                     ErrorDescription = ex.Message,
                     Message = $"Erro na exclusão de registro."
-                });
-            }
-        }
-
-        /// <summary>
-        /// Realiza o logout do usuário, invalidando todos os seus Refresh Tokens ativos.
-        /// </summary>
-        /// <returns>Um ActionResult indicando o sucesso da operação.</returns>
-        /// <response code="204">Logout bem-sucedido. Todos os Refresh Tokens do usuário foram invalidados.</response>
-        /// <response code="401">A requisição não foi autorizada (token JWT inválido ou ausente).</response>
-        /// <response code="500">Ocorreu um erro interno inesperado no servidor ao tentar processar o logout.</response>
-        [HttpPost("logout")]
-        [RequireHttps]
-        [Authorize]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorDTO), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult> Logout()
-        {
-            ClaimsPrincipal claimsPrincipal = HttpContext.User;
-            try
-            {
-                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
-                if (user == null)
-                {
-                    // Este caso geralmente não deve acontecer se [Authorize] funciona, mas é uma salvaguarda.
-                    return Unauthorized(new ErrorDTO
-                    {
-                        ErrorCode = "AUTH401TOKENINVALID_JWT",
-                        ErrorDescription = "Token JWT inválido (assinatura ou formato) ou usuário não encontrado.",
-                        Message = "Sessão inválida."
-                    });
-                }
-
-                // Supondo que este método revoga os tokens no banco de dados
-                await RevokeAllRefreshTokensForUser(user.UserId);
-
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Erro no logout: {ex.Message} - {ex.StackTrace}");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorDTO
-                {
-                    ErrorCode = "SERVER500_LOGOUT", // Código de erro mais específico
-                    ErrorDescription = $"Erro inesperado ao processar o logout.",
-                    Message = "Não foi possível realizar o logout. Por favor, tente novamente."
                 });
             }
         }
