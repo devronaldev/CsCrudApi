@@ -13,7 +13,19 @@ namespace CsCrudApi.Services
     {
         public static string GenerateToken(User user, ETokenType tokenType = ETokenType.Access)
         {
-            var time = tokenType == ETokenType.Access ? 2 : 720;
+            DateTime expires;
+            if (tokenType == ETokenType.Access)
+            {
+                expires = DateTime.UtcNow.AddHours(2);
+            }
+            else if (tokenType == ETokenType.Refresh)
+            {
+                expires = DateTime.UtcNow.AddHours(720);
+            }
+            else
+            {
+                expires = DateTime.UtcNow.AddMinutes(30);
+            }
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = GetKey();
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -22,7 +34,7 @@ namespace CsCrudApi.Services
                 [
                     new Claim(ClaimTypes.Email, user.Email),
                 ]),
-                Expires = DateTime.UtcNow.AddHours(time),
+                Expires = expires,
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             }; 
 
@@ -97,25 +109,27 @@ namespace CsCrudApi.Services
             }
         }
 
-        public static async Task<User?> GetTokenUserAsync(ClaimsPrincipal claimsPrincipal, ApplicationDbContext context)
+        public static string GetTokenEmailAsync(ClaimsPrincipal claimsPrincipal)
         {
             if (claimsPrincipal == null)
             {
                 return null;
             }
 
-            var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+            string emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
             if (string.IsNullOrEmpty(emailClaim))
             {
                 return null;
             }
-            return await context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
+
+            return emailClaim;
         }
 
         public enum ETokenType
         {
             Access,
-            Refresh
+            Refresh,
+            Email
         }
     }
 }
