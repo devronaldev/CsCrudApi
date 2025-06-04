@@ -39,6 +39,8 @@ namespace CsCrudApi.Models
         public DbSet<PostHasCategory> PostHasCategories { get; set; }
 
         public DbSet<Commentary> Commentaries { get; set; }
+        
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

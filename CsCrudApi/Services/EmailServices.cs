@@ -43,12 +43,12 @@ namespace CsCrudApi.Services
         //E-MAILs DE VERIFICAÇÃO:
         public static async Task SendVerificationEmail(User user)
         {
-            var token = TokenServices.GenerateToken(user); // Gerando o token para o usuário
+            var token = TokenServices.GenerateToken(user); 
             string rootRoute = EmailServices.GetRootRoute();
             
             //TROCAR URL POR VARIÁVEL DE AMBIENTE
             var verificationLink = string.Format($"{rootRoute}api/UserAuth/verificar-email?token={token}");
-            var cancelationLink = $"{rootRoute}api/UserAuth/cancelar-cadastro?email={user.Email}";
+            var cancelationLink = $"{rootRoute}api/UserAuth/cancelar-cadastro?token={token}";
             var plainTextContent = $"Por favor, clique no link para verificar seu e-mail: {verificationLink}. Caso você não tenha solicitado cadastro, clique nesse link para cancelar inscrição: {cancelationLink}";
             string htmlContent = await GetHTMLContent("VerificationEmail");
             
@@ -72,7 +72,7 @@ namespace CsCrudApi.Services
         {
             string rootRoute = EmailServices.GetRootRoute();
             var htmlContent = await GetHTMLContent("VerificationNewEmail");
-            string verificationLink = $"{rootRoute}api/User/trocar-email?token={emailVerification.VerificationToken}";
+            string verificationLink = $"{rootRoute}api/User/confirmar-troca-email?guid={emailVerification.VerificationToken}";
             string plainTextContent = $"Clique no link {verificationLink} para verificar o novo e-mail, caso não tenha sido você clique aqui para cancelar a requisição: FUTURO LINK" ;
             htmlContent = htmlContent.Replace("##LINK_VERIFICACAO##", verificationLink);
 
@@ -90,9 +90,9 @@ namespace CsCrudApi.Services
 
         //IMPLEMENTAR PARA MODO "ESQUECEU A SENHA"
         /*
-        public static async Task SendPasswordChangeEmail (LoginDTO user)
+        public static async Task SendPasswordChangeEmail (LoginRequestDTO user)
         {
-            LoginDTO loginDTO = new LoginDTO() { Email = user.Email, Password = user.Password};
+            LoginRequestDTO loginDTO = new LoginRequestDTO() { Email = user.Email, Password = user.Password};
         }
         */
 

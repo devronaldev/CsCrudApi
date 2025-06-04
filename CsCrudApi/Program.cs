@@ -13,13 +13,59 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 Env.Load();
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-builder.Services.AddSingleton(provider =>
+builder.Services.AddCors(options =>
 {
-    return new FileServices();
+    options.AddPolicy("DevPolicy", policy =>
+    {
+        policy.AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+
+    options.AddPolicy("ProdPolicy", policy =>
+    {
+        policy.WithOrigins("https://conectandosaberes.com.br")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
 });
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c=>
+{
+    c.SwaggerDoc("Development", new OpenApiInfo
+    {
+        Title = "API Conectando Saberes", Version = "0.2.0"
+    });
+    
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "JWT Authorization header using the Bearer scheme. \r\n\r\n Enter 'Bearer' [space] and then your token in the text input below.\r\n\r\nExample: \"Bearer 12345abcdef\"",
+    });
+
+   c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer" 
+                }
+            },
+            new string[] {} 
+        }
+    });
+    
+    var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+});
+
 var key = Encoding.ASCII.GetBytes(Environment.GetEnvironmentVariable("SECRET"));
 builder.Services.AddAuthentication(options =>
 {
@@ -43,23 +89,29 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseMySql(
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
 {
     app.UseDeveloperExceptionPage();
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/Development/swagger.json", "API Conectando Saberes 0.2.0");
+    });
+    
+
+    app.UseCors("DevPolicy");
 }
 else
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
+
+    app.UseCors("ProdPolicy");
 }
 
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
-
-app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
 app.UseRouting();
 

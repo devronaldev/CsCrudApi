@@ -11,27 +11,62 @@ namespace CsCrudApi.Services
 {
     public static class TokenServices
     {
-
-        public static string GenerateToken(User user)
+        public static string GenerateToken(User user, ETokenType tokenType = ETokenType.Access)
         {
+            DateTime expires;
+            if (tokenType == ETokenType.Access)
+            {
+                expires = DateTime.UtcNow.AddHours(2);
+            }
+            else if (tokenType == ETokenType.Refresh)
+            {
+                expires = DateTime.UtcNow.AddHours(720);
+            }
+            else
+            {
+                expires = DateTime.UtcNow.AddMinutes(30);
+            }
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = GetKey();
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(
                 [
-                    new Claim(ClaimTypes.Name, user.Name),
                     new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Role, user.TipoInteresse.ToString())
                 ]),
-                Expires = DateTime.UtcNow.AddHours(2),
+                Expires = expires,
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             }; 
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
-        public static byte[] GetKey()
+
+        public static RefreshToken GenerateRefreshToken(User user)
+        {
+            return new RefreshToken
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                UserId = user.UserId,
+                TokenHash = GenerateToken(user, ETokenType.Refresh),
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(30),
+                IsRevoked = false,
+                ReplacedByTokenId = null 
+            };
+        }
+        
+        public static string HashToken(string token)
+        {
+            return BCrypt.Net.BCrypt.HashPassword(token);
+        }
+
+        public static bool VerifyTokenHash(string token, string hashedToken)
+        {
+            return BCrypt.Net.BCrypt.Verify(token, hashedToken);
+        }
+        
+        private static byte[] GetKey()
         {
             var secret = Environment.GetEnvironmentVariable("SECRET");
 
@@ -74,22 +109,27 @@ namespace CsCrudApi.Services
             }
         }
 
-        public static async Task<User?> GetTokenUserAsync(ClaimsPrincipal claimsPrincipal, ApplicationDbContext context)
+        public static string GetTokenEmailAsync(ClaimsPrincipal claimsPrincipal)
         {
             if (claimsPrincipal == null)
             {
                 return null;
             }
 
-            var emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+            string emailClaim = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
             if (string.IsNullOrEmpty(emailClaim))
             {
                 return null;
             }
 
-            return await context.Users.FirstOrDefaultAsync(u => u.Email == emailClaim);
+            return emailClaim;
         }
 
-        public static string GenerateGUIDString() => Guid.NewGuid().ToString("N");
+        public enum ETokenType
+        {
+            Access,
+            Refresh,
+            Email
+        }
     }
 }
