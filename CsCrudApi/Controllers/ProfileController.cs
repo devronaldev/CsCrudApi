@@ -223,7 +223,8 @@ namespace CsCrudApi.Controllers
                     });
                 }
 
-                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal: claimsPrincipal, _context);
+                var userEmail =  TokenServices.GetTokenEmailAsync(claimsPrincipal);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);;
                 if (user == null)
                 {
                     // Isso pode acontecer se o usuário foi excluído após a emissão do token.

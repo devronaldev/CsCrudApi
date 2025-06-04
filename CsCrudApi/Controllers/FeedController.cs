@@ -56,7 +56,8 @@ namespace CsCrudApi.Controllers
                 pageNumber = Math.Max(1, pageNumber);   // Garante que pageNumber seja pelo menos 1
 
                 ClaimsPrincipal claimsPrincipal = HttpContext.User;
-                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
+                var userEmail =  TokenServices.GetTokenEmailAsync(claimsPrincipal);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
 
                 if (user == null)
                 {
@@ -248,8 +249,8 @@ namespace CsCrudApi.Controllers
             ClaimsPrincipal claimsPrincipal = HttpContext.User;
             try
             {
-                // Validar o token e obter o usuário do DB
-                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
+                var userEmail =  TokenServices.GetTokenEmailAsync(claimsPrincipal);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
                 if (user == null)
                 {
                     return NotFound(new ErrorDTO
@@ -397,7 +398,8 @@ namespace CsCrudApi.Controllers
                 if (userId == -1)
                 {
                     ClaimsPrincipal claimsPrincipal = HttpContext.User;
-                    targetUser = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
+                    var userEmail =  TokenServices.GetTokenEmailAsync(claimsPrincipal);
+                    targetUser = _context.Users.FirstOrDefault(u => u.Email == userEmail);
 
                     if (targetUser == null)
                     {

@@ -64,7 +64,8 @@ namespace CsCrudApi.Controllers
             try
             {
                 var claimsPrincipal = HttpContext.User;
-                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
+                var userEmail = TokenServices.GetTokenEmailAsync(claimsPrincipal);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
                 if (user == null)
                 {
                     return BadRequest(new ErrorDTO
@@ -99,13 +100,13 @@ namespace CsCrudApi.Controllers
                         _context.Categories.AddRange(newCategories);
                     }
 
-                    
+
                     if (newCategories.Any())
                     {
                         await _context.SaveChangesAsync();
                         existingCategories.AddRange(newCategories);
                     }
-                    
+
                     // Cria associações entre o Post e as Categorias (existentes e recém-criadas)
                     foreach (var category in existingCategories)
                     {
@@ -118,7 +119,7 @@ namespace CsCrudApi.Controllers
                 }
 
                 await _context.SaveChangesAsync();
-                
+
                 return Ok(new PostResponseDTO
                 {
                     Post = post,
@@ -178,6 +179,7 @@ namespace CsCrudApi.Controllers
                         Message = "O post solicitado não foi encontrado."
                     });
                 }
+
                 var postResponse = new PostResponseDTO(post);
 
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == post.UserId);
@@ -190,7 +192,7 @@ namespace CsCrudApi.Controllers
                         Message = "O usuário criador do post não foi encontrado."
                     });
                 }
-                
+
                 var campus = await _context.Campi.FirstOrDefaultAsync(c => c.Id == user.CdCampus);
                 if (campus == null)
                 {
@@ -201,6 +203,7 @@ namespace CsCrudApi.Controllers
                         Message = "O campus associado ao usuário não foi encontrado."
                     });
                 }
+
                 var campusResponse = new CampusResponseDTO(campus);
 
                 return Ok(new PostSearchByGuidDTO(campusResponse, user, postResponse));
@@ -253,13 +256,15 @@ namespace CsCrudApi.Controllers
 
             try
             {
-                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
+                var userEmail = TokenServices.GetTokenEmailAsync(claimsPrincipal);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
                 if (user == null)
                 {
                     return Unauthorized(new ErrorDTO
                     {
                         ErrorCode = "AUTH401TOKENINVALID",
-                        ErrorDescription = "O token de autenticação não é válido ou está expirado, ou o usuário não foi encontrado.",
+                        ErrorDescription =
+                            "O token de autenticação não é válido ou está expirado, ou o usuário não foi encontrado.",
                         Message = "Token de autenticação inválido ou expirado."
                     });
                 }
@@ -280,7 +285,8 @@ namespace CsCrudApi.Controllers
                     return StatusCode(403, new ErrorDTO
                     {
                         ErrorCode = "AUTH403PERMISSIONDENIED",
-                        ErrorDescription = $"O usuário {user.UserId} tentou excluir o post {post.Guid} que pertence ao usuário {post.UserId}.",
+                        ErrorDescription =
+                            $"O usuário {user.UserId} tentou excluir o post {post.Guid} que pertence ao usuário {post.UserId}.",
                         Message = "Você não tem permissão para excluir esse post."
                     });
                 }
@@ -288,7 +294,6 @@ namespace CsCrudApi.Controllers
                 _context.Posts.Remove(post);
                 await _context.SaveChangesAsync();
                 return NoContent();
-
             }
             catch (Exception ex)
             {
@@ -296,7 +301,7 @@ namespace CsCrudApi.Controllers
                 return StatusCode(500, new ErrorDTO
                 {
                     ErrorCode = "GEN500DELETEPOST",
-                    ErrorDescription ="Ocorreu um erro interno inesperado ao tentar excluir o post.",
+                    ErrorDescription = "Ocorreu um erro interno inesperado ao tentar excluir o post.",
                     Message = "Não foi possível excluir o post. Por favor, tente novamente mais tarde."
                 });
             }
@@ -386,7 +391,7 @@ namespace CsCrudApi.Controllers
         {
             if (string.IsNullOrEmpty(partName))
             {
-                return BadRequest(new ErrorDTO 
+                return BadRequest(new ErrorDTO
                 {
                     ErrorCode = "VAL400CATEGORYPARTEMPTY",
                     ErrorDescription = "O parâmetro 'partName' da query está vazio ou nulo.",
@@ -427,14 +432,14 @@ namespace CsCrudApi.Controllers
                 {
                     return NoContent();
                 }
-                
+
                 return Ok(posts);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Erro inesperado ao buscar posts por categorias: {ex.Message} - {ex.StackTrace}");
                 return StatusCode(StatusCodes.Status500InternalServerError,
-                    new ErrorDTO 
+                    new ErrorDTO
                     {
                         ErrorCode = "GEN500SEARCHPOSTBYCATEGORY",
                         ErrorDescription =
@@ -491,7 +496,7 @@ namespace CsCrudApi.Controllers
                 {
                     return NoContent();
                 }
-                
+
                 return Ok(posts);
             }
             catch (Exception ex)
@@ -538,7 +543,8 @@ namespace CsCrudApi.Controllers
             try
             {
                 //Verificações de usuário
-                var user = await TokenServices.GetTokenUserAsync(claimsPrincipal, _context);
+                var userEmail = TokenServices.GetTokenEmailAsync(claimsPrincipal);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
                 if (user == null)
                 {
                     return Unauthorized(new ErrorDTO
@@ -595,11 +601,12 @@ namespace CsCrudApi.Controllers
         }
 
         [NonAction]
-        public static async Task<List<Post>> PaginatePosts(IQueryable<Post> query, int pageNumber, int pageSize, Func<IQueryable<Post>, IQueryable<Post>>? filter = null)
+        public static async Task<List<Post>> PaginatePosts(IQueryable<Post> query, int pageNumber, int pageSize,
+            Func<IQueryable<Post>, IQueryable<Post>>? filter = null)
         {
             var items = await query.Skip((pageNumber - 1) * pageSize)
-                                    .Take(pageSize)
-                                    .ToListAsync();
+                .Take(pageSize)
+                .ToListAsync();
 
             return items;
         }
@@ -613,7 +620,7 @@ namespace CsCrudApi.Controllers
         [NonAction]
         public async Task<List<Post>> CountLikesAsync(List<Post> posts)
         {
-            foreach(var post in posts)
+            foreach (var post in posts)
             {
                 post.QuantityLikes = await CountLikesAsync(post.Guid);
             }
@@ -636,6 +643,7 @@ namespace CsCrudApi.Controllers
             {
                 dcCategories.Add(category.CategoryID);
             }
+
             return dcCategories;
         }
     }

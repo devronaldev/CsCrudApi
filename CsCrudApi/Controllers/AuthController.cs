@@ -169,7 +169,7 @@ namespace CsCrudApi.Controllers
             try
             {
                 var userEmail =  TokenServices.GetTokenEmailAsync(claimsPrincipal);
-                var user = _context.Users.FirstOrDefault(u => u.Email == userEmail);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
                 if (user == null)
                 {
                     return Unauthorized(new ErrorDTO
@@ -234,7 +234,7 @@ namespace CsCrudApi.Controllers
                 }
 
                 var userEmail =  TokenServices.GetTokenEmailAsync(claimsPrincipal);
-                var user = _context.Users.FirstOrDefault(u => u.Email == userEmail);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
                 if (user == null)
                 {
                     return Unauthorized(new ErrorDTO
@@ -549,7 +549,7 @@ namespace CsCrudApi.Controllers
            try
            {
                var userEmail =  TokenServices.GetTokenEmailAsync(TokenServices.ValidateJwtToken(token));
-               var user = _context.Users.FirstOrDefault(u => u.Email == userEmail);
+               var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
                 if (user == null)
                 {
                     return NotFound(new ErrorDTO
